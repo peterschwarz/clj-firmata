@@ -1,5 +1,7 @@
 # clj-firmata
 
+[![Build Status](https://travis-ci.org/peterschwarz/clj-firmata.png?branch=master)](https://travis-ci.org/peterschwarz/clj-firmata)
+
 **clj-firmata** provides access to [Standard Firmata](http://firmata.org/) commands via clojure. 
 
 ## Usage
