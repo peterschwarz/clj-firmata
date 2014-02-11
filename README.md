@@ -1,14 +1,17 @@
 # clj-firmata
 
-A Clojure library designed to ... well, that part is up to you.
+**clj-firmata** provides access to [Standard Firmata](http://firmata.org/) commands via clojure. 
 
 ## Usage
 
-FIXME
+Add the following to your `project.clj`
+
+	[clj-firmata 0.1.0-SNAPSHOT]
+
+
 
 ## License
 
-Copyright © 2014 FIXME
+Copyright © 2014 Peter Schwarz
 
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Distributed under the Eclipse Public License, the same as Clojure.
