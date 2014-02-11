@@ -1,5 +1,6 @@
 (ns firmata.core
-  (:require [serial.core :as serial]))
+  (:require [clojure.core.async :refer [chan go <! >!]]
+            [serial.core :as serial]))
 
 ; Message Types
 
@@ -33,7 +34,7 @@
 (def ^{:private true} SYSEX_NON_REALTIME      0x7E ); MIDI Reserved for non-realtime messages
 (def ^{:private true} SYSEX_REALTIME          0x7F ); MIDI Reserved for realtime messages
 
-(defrecord Board [port])
+(defrecord Board [port channel])
 
 (defn- to-hex
   "For debug output"
@@ -53,13 +54,15 @@
   (str (.read in) "." (.read in)))
 
 (defn- sysex-handler
-  [in]
+  [board in]
   (let [command (.read in)]
     (cond
-     (= command REPORT_FIRMWARE) (do
-                                   (println "**Reporting Firmware**")
-                                   (println "Firmware version:" (read-version in))
-                                   (println (consume-sysex in "" #(str %1 (char %2)))))
+     (= command REPORT_FIRMWARE) (let [version (read-version in)
+                                       name (consume-sysex in "" #(str %1 (char %2)))]
+                                   (go (>! (:channel board)
+                                           {:type :firmware-report
+                                            :version version
+                                            :name name})))
           :else (do
                   (println "Unknown SysEx Message:" (to-hex command))
                   (consume-sysex '() #(conj %1 %2))))))
@@ -70,8 +73,8 @@
   (fn [in]
     (let [message (.read in)]
       (cond
-       (= PROTOCOL_VERSION message) (do (println "Protocol Version:" (read-version in)))
-       (= SYSEX_START message) (sysex-handler in)
+       (= PROTOCOL_VERSION message) (let [version (read-version in)] (go (>! (:channel board) {:type :protocol-version, :version version})))
+       (= SYSEX_START message) (sysex-handler board in)
        :else (println "Unknown Message:" (to-hex message))))))
 
 
@@ -79,7 +82,7 @@
 (defn connect
   [port-name]
   (let [port (serial/open port-name 57600)
-        board (Board. port)]
+        board (Board. port (chan))]
     (serial/listen port (firmata-handler board) false)
     board))
 
