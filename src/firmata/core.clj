@@ -143,3 +143,9 @@
   "Query the firmware version of the board"
   [board]
   (serial/write (:port board) PROTOCOL_VERSION))
+
+(defn query-pin-state
+  "Queries the pin state of a given pin (0-127) on the board"
+  [board pin]
+  {:pre [(number? pin) (>= pin 0) (< pin 128)]}
+  (serial/write (:port board) [SYSEX_START PIN_STATE_QUERY pin SYSEX_END]))

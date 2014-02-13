@@ -91,7 +91,7 @@
 (deftest test-write
   (with-redefs [serial/open (fn [name rate] :port)
                 serial/listen (fn [port h skip?] nil)
-                serial/write (fn [port x] (reset! write-value x))]
+                serial/write (fn [port x] (reset! write-value x) nil)]
     (let [board (open-board "writable_board")]
 
       (testing "query protocol version"
@@ -105,7 +105,15 @@
 
       (testing "query capabilities"
         (query-capabilities board)
-        (is (= [0xF0 0x6B 0xF7])))
+        (is (= [0xF0 0x6B 0xF7] @write-value)))
+
+      (testing "pin state query"
+        (query-pin-state board 0)
+        (is (= [0xF0 0x6D 0 0xF7] @write-value))
+
+        (is (thrown? AssertionError (query-pin-state board "foo")))
+        (is (thrown? AssertionError (query-pin-state board -1)))
+        (is (thrown? AssertionError (query-pin-state board 128))))
 
     )))
 
