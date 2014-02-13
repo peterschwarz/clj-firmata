@@ -38,11 +38,14 @@
 
 (defrecord Board [port channel])
 
-(defn- to-hex
-  "For debug output"
-  [x] (Integer/toHexString x))
+(defn- to-number
+  "Converts a sequence of bytes into an (long) number."
+  [bytes]
+  (long (BigInteger. (byte-array (count bytes) bytes)))
+  )
 
 (defn- consume-until
+  "Consumes bytes from the given input stream until the end-signal is reached."
   [end-signal in initial accumulator]
   (loop [current-value (.read in)
           result initial]
@@ -52,29 +55,30 @@
               (accumulator result current-value)))))
 
 (defn- consume-sysex
+  "Consumes bytes until the end of a SysEx response."
   [in initial accumulator]
    (consume-until SYSEX_END in initial accumulator))
 
 (defn- read-capabilities
+  "Reads the capabilities response from the input stream"
   [in]
+  (loop [result {}
+         current-value (.read in)
+         pin 0]
+    (if (= SYSEX_END current-value)
+      result
+      (recur (assoc result pin
+               (loop [modes {}
+                      pin-mode current-value]
+                 (if (= 0x7F pin-mode)
+                   modes
+                   (recur (assoc modes pin-mode (.read in))
+                          (.read in))
+                   )))
+             (.read in)
+             (inc pin))
 
-    (loop [result {}
-           current-value (.read in)
-           pin 0]
-      (if (= SYSEX_END current-value)
-        result
-        (recur (assoc result pin
-                 (loop [modes {}
-                    pin-mode current-value]
-                  (if (= 0x7F pin-mode)
-                    modes
-                    (recur (assoc modes pin-mode (.read in))
-                           (.read in))
-                    )))
-               (.read in)
-               (inc pin))
-
-        )))
+      )))
 
 (defn- read-version
   [in]
@@ -96,6 +100,17 @@
   (let [report (read-capabilities in)]
     {:type :capabilities-report
      :modes report}))
+
+(defmethod read-sysex-event PIN_STATE_RESPONSE
+  [in]
+  (let [pin (.read in)
+        mode (.read in)
+        value (to-number (consume-sysex in [] #(conj %1 (byte %2))))]
+    {:type :pin-state
+     :pin pin
+     :mode mode
+     :value value})
+  )
 
 (defmethod read-sysex-event :default
   [in]
@@ -130,7 +145,9 @@
 
 
 (defn open-board
+  "Opens a board on at a given port name"
   [port-name]
+  ; TODO add more parameters (baud rate, etc)
   (let [port (serial/open port-name 57600)
         board (Board. port (chan))]
     (serial/listen port (firmata-handler board) false)

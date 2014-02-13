@@ -30,39 +30,35 @@
   (with-redefs [serial/open (fn [name rate] :port)
                 serial/listen (fn [port h skip?] (reset! handler h))]
 
-    (testing "read protocol version"
-      (let [board (open-board "some_board")
-          in (create-in-stream 0xF9 2 3)]
-      (@handler in)
-      (if-let [event (<!! (:channel board))]
-            (do
-              (is (= :protocol-version (:type event)))
-              (is (= "2.3" (:version event))))
-            (is (= "Expected event" "but was no event"))
-            )))
+    (let [board (open-board "some_board")]
+
+      (testing "read protocol version"
+        (@handler (create-in-stream 0xF9 2 3))
+        (if-let [event (<!! (:channel board))]
+              (do
+                (is (= :protocol-version (:type event)))
+                (is (= "2.3" (:version event))))
+              (is (= "Expected event" "but was no event"))
+              ))
 
 
-    (testing "read firmware info"
-      (let [board (open-board "some_board")
-          in (create-in-stream 0xF0 0x79 2 3 "Firmware Name" 0xF7)]
-      (@handler in)
-      (if-let [event (<!! (:channel board))]
-        (do
-          (is (= :firmware-report (:type event)))
-          (is (= "2.3" (:version event)))
-          (is (= "Firmware Name" (:name event))))
-        (is (= "Expected event" "but was no event"))
-        )))
+      (testing "read firmware info"
+        (@handler (create-in-stream 0xF0 0x79 2 3 "Firmware Name" 0xF7))
+        (if-let [event (<!! (:channel board))]
+          (do
+            (is (= :firmware-report (:type event)))
+            (is (= "2.3" (:version event)))
+            (is (= "Firmware Name" (:name event))))
+          (is (= "Expected event" "but was no event"))
+          ))
 
-     (testing "read capabilities"
-       (let [board (open-board "some_board")
-          in (create-in-stream 0xF0 0x6C
-                               0x7f ; empty capability 0
-                               0x7f ; empty capability 1
-                               0x00 0x01 0x01 0x01 0x04 0x0e 0x7f
-                               0x00 0x01 0x01 0x01 0x03 0x08 0x04 0x0e 0x7f
-                               0xF7)]
-        (@handler in)
+      (testing "read capabilities"
+        (@handler (create-in-stream 0xF0 0x6C
+                                    0x7f ; empty capability 0
+                                    0x7f ; empty capability 1
+                                    0x00 0x01 0x01 0x01 0x04 0x0e 0x7f
+                                    0x00 0x01 0x01 0x01 0x03 0x08 0x04 0x0e 0x7f
+                                    0xF7))
         (if-let [event (<!! (:channel board))]
           (do
             (is (= :capabilities-report (:type event)))
@@ -72,19 +68,38 @@
                     3 {0 1, 1 1, 3 0x08, 4 0x0e}}
                    (:modes event))))
           (is (= "Expected event" "but was no event"))
-          )))
+          ))
 
       (testing "empty capabilities"
-        (let [board (open-board "some_board")
-          in (create-in-stream 0xF0 0x6C 0xF7)]
-          (@handler in)
-          (if-let [event (<!! (:channel board))]
-            (do
-              (is (= :capabilities-report (:type event)))
-              (is (= {} (:modes event))))
-            )))
+        (@handler (create-in-stream 0xF0 0x6C 0xF7))
+        (if-let [event (<!! (:channel board))]
+          (do
+            (is (= :capabilities-report (:type event)))
+            (is (= {} (:modes event))))
+          (is (= "Expected event" "but was no event"))
+          ))
 
-    ))
+      (testing "read pin state"
+        (@handler (create-in-stream 0xF0 0x6E 2 0 0x04 0xF7))
+        (if-let [event (<!! (:channel board))]
+          (do
+            (is (= :pin-state (:type event)))
+            (is (= 2 (:pin event)))
+            (is (= 0 (:mode event)))
+            (is (= 4 (:value event))))
+          (is (= "Expected event" "but was no event"))))
+
+      (testing "read pin state larger value"
+        (@handler (create-in-stream 0xF0 0x6E 2 0 0x01 0x04 0xF7))
+        (if-let [event (<!! (:channel board))]
+          (do
+            (is (= :pin-state (:type event)))
+            (is (= 2 (:pin event)))
+            (is (= 0 (:mode event)))
+            (is (= 260 (:value event))))
+          (is (= "Expected event" "but was no event"))))
+
+    )))
 
 (def write-value (atom nil))
 
