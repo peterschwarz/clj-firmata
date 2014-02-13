@@ -36,6 +36,8 @@
 (def ^{:private true} SYSEX_NON_REALTIME      0x7E ); MIDI Reserved for non-realtime messages
 (def ^{:private true} SYSEX_REALTIME          0x7F ); MIDI Reserved for realtime messages
 
+(def ^{:private true} mode-values {:input 0, :output 1 :analog 2 :pwm 3 :servo 4})
+
 (defrecord Board [port channel])
 
 (defn- to-number
@@ -84,7 +86,7 @@
   [in]
   (str (.read in) "." (.read in)))
 
-(defmulti read-sysex-event
+(defmulti ^{:private true} read-sysex-event
   (fn [in] (.read in)))
 
 (defmethod read-sysex-event REPORT_FIRMWARE
@@ -118,7 +120,7 @@
     {:type :unknown-sysex
      :value values}))
 
-(defmulti read-event
+(defmulti ^{:private true} read-event
   (fn [in] (.read in)))
 
 (defmethod read-event PROTOCOL_VERSION
@@ -177,3 +179,8 @@
   [board pin]
   {:pre [(number? pin) (>= pin 0) (< pin 128)]}
   (serial/write (:port board) [SYSEX_START PIN_STATE_QUERY pin SYSEX_END]))
+
+(defn set-pin-mode
+  [board pin mode]
+  {:pre [(number? pin) (>= pin 0) (< pin 128) (mode mode-values)]}
+  (serial/write (:port board) [SET_PIN_IO_MODE pin (mode mode-values)]))

@@ -130,6 +130,29 @@
         (is (thrown? AssertionError (query-pin-state board -1)))
         (is (thrown? AssertionError (query-pin-state board 128))))
 
+      (testing "set pin mode"
+        (set-pin-mode board 4 :input)
+        (is (= [0xF4 4 0] @write-value))
+
+        (set-pin-mode board 3 :output)
+        (is (= [0xF4 3 1] @write-value))
+
+        (set-pin-mode board 16 :analog)
+        (is (= [0xF4 16 2] @write-value))
+
+        (set-pin-mode board 13 :pwm)
+        (is (= [0xF4 13 3] @write-value))
+
+        (set-pin-mode board 28 :servo)
+        (is (= [0xF4 28 4] @write-value))
+
+        (is (thrown? AssertionError (set-pin-mode board 1 :foo)))
+        (is (thrown? AssertionError (set-pin-mode board "foo" :input)))
+        (is (thrown? AssertionError (set-pin-mode board -1 :input)))
+        (is (thrown? AssertionError (set-pin-mode board 128 :input))))
+
+
+
     )))
 
 
