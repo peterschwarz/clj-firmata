@@ -15,6 +15,8 @@
 (def ^{:private true} PROTOCOL_VERSION    0xF9)
 (def ^{:private true} SYSEX_RESET         0xFF)
 
+; SysEx Commands
+
 (def ^{:private true} RESERVED_COMMAND        0x00 ); 2nd SysEx data byte is a chip-specific command (AVR, PIC, TI, etc).
 (def ^{:private true} ANALOG_MAPPING_QUERY    0x69 ); ask for mapping of analog to pin numbers
 (def ^{:private true} ANALOG_MAPPING_RESPONSE 0x6A ); reply with mapping info
@@ -40,14 +42,39 @@
   "For debug output"
   [x] (Integer/toHexString x))
 
-(defn- consume-sysex
-  [in initial accumulator]
-   (loop [current-value (.read in)
+(defn- consume-until
+  [end-signal in initial accumulator]
+  (loop [current-value (.read in)
           result initial]
-     (if (= SYSEX_END current-value)
+     (if (= end-signal current-value)
        result
        (recur (.read in)
               (accumulator result current-value)))))
+
+(defn- consume-sysex
+  [in initial accumulator]
+   (consume-until SYSEX_END in initial accumulator))
+
+(defn- read-capabilities
+  [in]
+
+    (loop [result {}
+           current-value (.read in)
+           pin 0]
+      (if (= SYSEX_END current-value)
+        result
+        (recur (assoc result pin
+                 (loop [modes {}
+                    pin-mode current-value]
+                  (if (= 0x7F pin-mode)
+                    modes
+                    (recur (assoc modes pin-mode (.read in))
+                           (.read in))
+                    )))
+               (.read in)
+               (inc pin))
+
+        )))
 
 (defn- read-version
   [in]
@@ -63,9 +90,19 @@
                                            {:type :firmware-report
                                             :version version
                                             :name name})))
-          :else (do
-                  (println "Unknown SysEx Message:" (to-hex command))
-                  (consume-sysex '() #(conj %1 %2))))))
+
+     (= command CAPABILITY_RESPONSE) (let [report (read-capabilities in)]
+                                       (go (>! (:channel board)
+                                               {:type :capabilities-report
+                                                :modes report})))
+
+
+     :else (let [values (consume-sysex in '() #(conj %1 %2))]
+             (go (>! (:channel board)
+                     {:type :unknown-sysex
+                      :value values}))
+
+             ))))
 
 
 (defn- firmata-handler
@@ -75,11 +112,13 @@
       (cond
        (= PROTOCOL_VERSION message) (let [version (read-version in)] (go (>! (:channel board) {:type :protocol-version, :version version})))
        (= SYSEX_START message) (sysex-handler board in)
-       :else (println "Unknown Message:" (to-hex message))))))
+       :else (go (>! (:channel board)
+                     {:type :unknown-message
+                      :value message}))))))
 
 
 
-(defn connect
+(defn open-board
   [port-name]
   (let [port (serial/open port-name 57600)
         board (Board. port (chan))]
@@ -93,8 +132,12 @@
 (defn query-firmware
   "Query the firmware of the board"
   [board]
-    (serial/write (:port board)
-      [SYSEX_START REPORT_FIRMWARE SYSEX_END]))
+  (serial/write (:port board) [SYSEX_START REPORT_FIRMWARE SYSEX_END]))
+
+(defn query-capabilities
+  "Query the capabilities of the board"
+  [board]
+  (serial/write (:port board) [SYSEX_START CAPABILITY_QUERY SYSEX_END]))
 
 (defn request-version
   "Query the firmware version of the board"
