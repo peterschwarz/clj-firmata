@@ -139,7 +139,7 @@
   [board]
   (serial/write (:port board) [SYSEX_START CAPABILITY_QUERY SYSEX_END]))
 
-(defn request-version
+(defn query-version
   "Query the firmware version of the board"
   [board]
   (serial/write (:port board) PROTOCOL_VERSION))

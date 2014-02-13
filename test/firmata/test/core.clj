@@ -95,7 +95,7 @@
     (let [board (open-board "writable_board")]
 
       (testing "query protocol version"
-        (request-version board)
+        (query-version board)
 
         (is (= 0xF9 @write-value)))
 
