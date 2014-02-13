@@ -80,42 +80,53 @@
   [in]
   (str (.read in) "." (.read in)))
 
-(defn- sysex-handler
-  [board in]
-  (let [command (.read in)]
-    (cond
-     (= command REPORT_FIRMWARE) (let [version (read-version in)
-                                       name (consume-sysex in "" #(str %1 (char %2)))]
-                                   (go (>! (:channel board)
-                                           {:type :firmware-report
-                                            :version version
-                                            :name name})))
+(defmulti read-sysex-event
+  (fn [in] (.read in)))
 
-     (= command CAPABILITY_RESPONSE) (let [report (read-capabilities in)]
-                                       (go (>! (:channel board)
-                                               {:type :capabilities-report
-                                                :modes report})))
+(defmethod read-sysex-event REPORT_FIRMWARE
+  [in]
+  (let [version (read-version in)
+       name (consume-sysex in "" #(str %1 (char %2)))]
+    {:type :firmware-report
+     :version version
+     :name name}))
 
+(defmethod read-sysex-event CAPABILITY_RESPONSE
+  [in]
+  (let [report (read-capabilities in)]
+    {:type :capabilities-report
+     :modes report}))
 
-     :else (let [values (consume-sysex in '() #(conj %1 %2))]
-             (go (>! (:channel board)
-                     {:type :unknown-sysex
-                      :value values}))
+(defmethod read-sysex-event :default
+  [in]
+  (let [values (consume-sysex in '() #(conj %1 %2))]
+    {:type :unknown-sysex
+     :value values}))
 
-             ))))
+(defmulti read-event
+  (fn [in] (.read in)))
 
+(defmethod read-event PROTOCOL_VERSION
+  [in]
+  (let [version (read-version in)]
+    {:type :protocol-version, :version version}))
+
+(defmethod read-event SYSEX_START
+  [in]
+  (read-sysex-event in))
+
+(defmethod read-event :default
+  [in]
+  {:type :unknown-message
+   ; TODO: Replace value in the message
+   ; :value ?
+   })
 
 (defn- firmata-handler
   [board]
   (fn [in]
-    (let [message (.read in)]
-      (cond
-       (= PROTOCOL_VERSION message) (let [version (read-version in)] (go (>! (:channel board) {:type :protocol-version, :version version})))
-       (= SYSEX_START message) (sysex-handler board in)
-       :else (go (>! (:channel board)
-                     {:type :unknown-message
-                      :value message}))))))
-
+    (let [event (read-event in)]
+      (go (>! (:channel board) event)))))
 
 
 (defn open-board
