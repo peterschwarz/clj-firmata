@@ -195,9 +195,17 @@
   [command pin]
   (bit-and 0x000000ff (bit-or (.byteValue command) (.byteValue pin))))
 
-(defn enable-analog-in-reporting
-  "Enables 'analog in' reporting of a given pin (0-127)."
-  [board pin enabled?]
+(defn- enable-reporting
+  [board report-type pin enabled?]
   {:pre [(pin? pin 16)]}
-  (serial/write (:port board) [(pin-command REPORT_ANALOG_PIN pin) (if enabled? 1 0)])
-  )
+  (serial/write (:port board) [(pin-command report-type pin) (if enabled? 1 0)]))
+
+(defn enable-analog-in-reporting
+  "Enables 'analog in' reporting of a given pin (0-15)."
+  [board pin enabled?]
+  (enable-reporting board REPORT_ANALOG_PIN pin enabled?))
+
+(defn enable-digital-port-reporting
+  "Enables digital port reporting on a given pin (0-15)."
+  [board pin enabled?]
+  (enable-reporting board REPORT_DIGITAL_PORT pin enabled?))

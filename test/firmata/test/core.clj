@@ -158,8 +158,16 @@
         (enable-analog-in-reporting board 2 false)
         (is (= [0xC2 0] @write-value))
 
-        (is (thrown? AssertionError (enable-analog-in-reporting board 16 true)))
-        )
+        (is (thrown? AssertionError (enable-analog-in-reporting board 16 true))))
+
+      (testing "toggle digital port reporting"
+        (enable-digital-port-reporting board 1 true)
+        (is (= [0xD1 1] @write-value))
+
+        (enable-digital-port-reporting board 15 false)
+        (is (= [0xDF 0] @write-value))
+
+        (is (thrown? AssertionError (enable-digital-port-reporting board 16 false))))
 
     )))
 
