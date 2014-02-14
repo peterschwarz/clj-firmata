@@ -220,3 +220,8 @@
   "Writes the digital value (max of 2 bytes) to the given pin (0-15)."
   [board pin value]
   (write-pin-command board DIGITAL_IO_MESSAGE pin (lsb value) (msb value)))
+
+(defn set-analog
+  "Writes the analog value (max of 2 bytes to the given pin (0-15)."
+  [board pin value]
+  (write-pin-command board ANALOG_IO_MESSAGE pin (lsb value) (msb value)))
