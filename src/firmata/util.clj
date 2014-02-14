@@ -4,7 +4,7 @@
 
 (defn to-hex-str
   "For debug output"
-  [x] (str "0x" (.toUpperCase(Integer/toHexString x))))
+  [x] (str "0x" (.toUpperCase (Integer/toHexString x))))
 
 (defn create-event-receiver
   [board event-handler]
