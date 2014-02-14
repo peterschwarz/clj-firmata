@@ -119,9 +119,26 @@
      :value value})
   )
 
+(defn- read-analog-mappings
+  [in]
+  (loop [result {}
+         current-byte (.read in)
+         pin 0]
+    (if (= SYSEX_END current-byte)
+      result
+      (recur (if-not (= current-byte 0x7F) (assoc result current-byte pin) result)
+             (.read in)
+             (inc pin)))))
+
+(defmethod read-sysex-event ANALOG_MAPPING_RESPONSE
+  [in]
+  (let [mappings (read-analog-mappings in)]
+    {:type :analog-mappings
+     :mappings mappings}))
+
 (defmethod read-sysex-event :default
   [in]
-  (let [values (consume-sysex in '() #(conj %1 %2))]
+  (let [values (consume-sysex in '[] #(conj %1 %2))]
     {:type :unknown-sysex
      :value values}))
 
@@ -179,6 +196,14 @@
   [board]
   (serial/write (:port board) PROTOCOL_VERSION))
 
+(defn query-analog-mappings
+  "Analog messages are numbered 0 to 15, which traditionally refer to the Arduino pins labeled A0, A1, A2, etc.
+  However, these pins are actually configured using \"normal\" pin numbers in the pin mode message, and when
+  those pins are uses for non-analog functions. The analog mapping query provides the information about which pins
+  (as used with Firmata's pin mode message) correspond to the analog channels"
+  [board]
+  (serial/write (:port board) [SYSEX_START ANALOG_MAPPING_QUERY SYSEX_END]))
+
 (defn- pin?
   ([pin] (pin? pin 128))
   ([pin pin-count]
@@ -215,10 +240,12 @@
   [board pin enabled?]
   (write-pin-command board REPORT_DIGITAL_PORT pin (if enabled? 1 0)))
 
-(defn- lsb [b]
+(defn- lsb "Least significant byte"
+  [b]
   (bit-and (.byteValue b) 0x7F))
 
-(defn- msb [b]
+(defn- msb "Most significant byte (of a 16-bit value)"
+  [b]
   (bit-and (bit-shift-right (.byteValue b) 7) 0x7F))
 
 (defn set-digital

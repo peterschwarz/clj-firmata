@@ -99,6 +99,19 @@
             (is (= 260 (:value event))))
           (is (= "Expected event" "but was no event"))))
 
+      (testing "read analog mappings"
+        (@handler (create-in-stream 0xF0 0x6A 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0 1 2 3 4 5 0xF7))
+        (if-let [event (<!! (:channel board))]
+          (do
+            (is (= :analog-mappings (:type event)))
+            (is (= {0 14,
+                    1 15,
+                    2 16,
+                    3 17,
+                    4 18,
+                    5 19} (:mappings event))))
+          (is (= "Expected event" "but was no event"))))
+
     )))
 
 (def write-value (atom nil))
@@ -129,6 +142,11 @@
         (is (thrown? AssertionError (query-pin-state board "foo")))
         (is (thrown? AssertionError (query-pin-state board -1)))
         (is (thrown? AssertionError (query-pin-state board 128))))
+
+      (testing "query analog mappings"
+        (query-analog-mappings board)
+
+        (is (= [0xF0 0x69 0xF7] @write-value)))
 
       (testing "set pin mode"
         (set-pin-mode board 4 :input)
