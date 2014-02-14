@@ -169,6 +169,12 @@
 
         (is (thrown? AssertionError (enable-digital-port-reporting board 16 false))))
 
+      (testing "set digital value"
+        (set-digital board 1 1000)
+        (is (= [0x91 0x68 0x7F] @write-value))
+
+        (is (thrown? AssertionError (set-digital board 16 1000))))
+
     )))
 
 
