@@ -36,6 +36,8 @@
 (def ^{:private true} SYSEX_NON_REALTIME      0x7E ); MIDI Reserved for non-realtime messages
 (def ^{:private true} SYSEX_REALTIME          0x7F ); MIDI Reserved for realtime messages
 
+; Pin Modes
+(def ^{:private true} modes [:input :output :analog :pwm :servo])
 (def ^{:private true} mode-values {:input 0, :output 1 :analog 2 :pwm 3 :servo 4})
 
 (defrecord Board [port channel])
@@ -70,11 +72,11 @@
     (if (= SYSEX_END current-value)
       result
       (recur (assoc result pin
-               (loop [modes {}
+               (loop [pin-modes {}
                       pin-mode current-value]
                  (if (= 0x7F pin-mode)
-                   modes
-                   (recur (assoc modes pin-mode (.read in))
+                   pin-modes
+                   (recur (assoc pin-modes (get modes pin-mode :future-mode) (.read in))
                           (.read in))
                    )))
              (.read in)

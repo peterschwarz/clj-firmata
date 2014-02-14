@@ -64,8 +64,8 @@
             (is (= :capabilities-report (:type event)))
             (is (= {0 {},
                     1 {},
-                    2 {0 1, 1 1, 4 0x0e},
-                    3 {0 1, 1 1, 3 0x08, 4 0x0e}}
+                    2 {:input 1, :output 1, :servo 0x0e},
+                    3 {:input 1, :output 1, :pwm 0x08, :servo 0x0e}}
                    (:modes event))))
           (is (= "Expected event" "but was no event"))
           ))
