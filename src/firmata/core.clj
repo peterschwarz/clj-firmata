@@ -257,3 +257,8 @@
   "Writes the analog value (max of 2 bytes to the given pin (0-15)."
   [board pin value]
   (write-pin-command board ANALOG_IO_MESSAGE pin (lsb value) (msb value)))
+
+(defn set-sampling-interval
+  "The sampling interval sets how often analog data and i2c data is reported to the client. The default value is 19 milliseconds."
+  [board interval]
+  (serial/write (:port board) [SYSEX_START SAMPLING_INTERVAL (lsb interval) (msb interval) SYSEX_END]))
