@@ -175,6 +175,9 @@
         (set-digital board 1 1000)
         (is (= [0x91 0x68 0x7F] @write-value))
 
+        (set-digital board 15 HIGH)
+        (is (= [0x9F 0x1 0x0] @write-value))
+
         (is (thrown? AssertionError (set-digital board -1 1000)))
         (is (thrown? AssertionError (set-digital board 16 1000))))
 

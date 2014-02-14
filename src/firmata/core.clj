@@ -40,6 +40,9 @@
 (def ^{:private true} modes [:input :output :analog :pwm :servo])
 (def ^{:private true} mode-values {:input 0, :output 1 :analog 2 :pwm 3 :servo 4})
 
+(def HIGH 1)
+(def LOW 0)
+
 (defrecord Board [port channel])
 
 (defn- to-number
