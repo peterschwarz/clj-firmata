@@ -151,7 +151,15 @@
         (is (thrown? AssertionError (set-pin-mode board -1 :input)))
         (is (thrown? AssertionError (set-pin-mode board 128 :input))))
 
+      (testing "toggle analog in"
+        (enable-analog-in-reporting board 1 true)
+        (is (= [0xC1 1] @write-value))
 
+        (enable-analog-in-reporting board 2 false)
+        (is (= [0xC2 0] @write-value))
+
+        (is (thrown? AssertionError (enable-analog-in-reporting board 16 true)))
+        )
 
     )))
 

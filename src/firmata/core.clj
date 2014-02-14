@@ -174,13 +174,30 @@
   [board]
   (serial/write (:port board) PROTOCOL_VERSION))
 
+(defn- pin?
+  ([pin] (pin? pin 128))
+  ([pin pin-count]
+  (and (number? pin) (>= pin 0) (< pin pin-count))))
+
 (defn query-pin-state
   "Queries the pin state of a given pin (0-127) on the board"
   [board pin]
-  {:pre [(number? pin) (>= pin 0) (< pin 128)]}
+  {:pre [(pin? pin)]}
   (serial/write (:port board) [SYSEX_START PIN_STATE_QUERY pin SYSEX_END]))
 
 (defn set-pin-mode
+  "Sets the mode of a pin (0 to 127), one of: :input, :output, :analog, :pwm, :servo"
   [board pin mode]
-  {:pre [(number? pin) (>= pin 0) (< pin 128) (mode mode-values)]}
+  {:pre [(pin? pin) (mode mode-values)]}
   (serial/write (:port board) [SET_PIN_IO_MODE pin (mode mode-values)]))
+
+(defn- pin-command
+  [command pin]
+  (bit-and 0x000000ff (bit-or (.byteValue command) (.byteValue pin))))
+
+(defn enable-analog-in-reporting
+  "Enables 'analog in' reporting of a given pin (0-127)."
+  [board pin enabled?]
+  {:pre [(pin? pin 16)]}
+  (serial/write (:port board) [(pin-command REPORT_ANALOG_PIN pin) (if enabled? 1 0)])
+  )
