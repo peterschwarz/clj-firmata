@@ -85,17 +85,17 @@
           (do
             (is (= :pin-state (:type event)))
             (is (= 2 (:pin event)))
-            (is (= 0 (:mode event)))
+            (is (= :input (:mode event)))
             (is (= 4 (:value event))))
           (is (= "Expected event" "but was no event"))))
 
       (testing "read pin state larger value"
-        (@handler (create-in-stream 0xF0 0x6E 2 0 0x01 0x04 0xF7))
+        (@handler (create-in-stream 0xF0 0x6E 2 1 0x01 0x04 0xF7))
         (if-let [event (<!! (:channel board))]
           (do
             (is (= :pin-state (:type event)))
             (is (= 2 (:pin event)))
-            (is (= 0 (:mode event)))
+            (is (= :output (:mode event)))
             (is (= 260 (:value event))))
           (is (= "Expected event" "but was no event"))))
 

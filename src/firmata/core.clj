@@ -111,7 +111,7 @@
 (defmethod read-sysex-event PIN_STATE_RESPONSE
   [in]
   (let [pin (.read in)
-        mode (.read in)
+        mode (get modes (.read in) :future-mode)
         value (to-number (consume-sysex in [] #(conj %1 (byte %2))))]
     {:type :pin-state
      :pin pin
