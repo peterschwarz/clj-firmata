@@ -210,7 +210,45 @@
         (set-sampling-interval board 1000)
         (is (= [0xF0 0x7A 0x68 0x7F 0xF7] @write-value)))
 
+
     )))
+
+(deftest test-i2c-request
+  (let [writes (atom [])]
+    (with-redefs [serial/open (fn [name rate] :port)
+                  serial/listen (fn [port h skip?] nil)
+                  serial/write (fn [port x] (swap! writes conj x) nil)]
+      (let [board (open-board "writable_board")]
+
+        (testing "ic2 request: write"
+          (send-i2c-request board 6 :write 0xF 0xE 0xD)
+          (is (= [[0xF0 0x76 6 0]
+                  [0xF 0x0 0xE 0 0xD 0x0]
+                  0xF7] @writes)))
+
+
+        (reset! writes [])
+
+        (testing "ic2 request: read-once"
+          (send-i2c-request board 6 :read-once 1000)
+          (is (= [[0xF0 0x76 6 2r0000100] [0x68 0x7F] 0xF7] @writes)))
+
+        (reset! writes [])
+
+        (testing "ic2 request: read-continuously"
+          (send-i2c-request board 7 :read-continuously)
+          (is (= [[0xF0 0x76 7 2r1000] 0xF7 ] @writes)))
+
+        (reset! writes [])
+
+        (testing "ic2 request: stop-reading"
+          (send-i2c-request board 7 :stop-reading)
+          (is (= [[0xF0 0x76 7 2r1100] 0xF7 ] @writes)))
+
+        (reset! writes [])
+
+
+  ))))
 
 
 (run-tests)

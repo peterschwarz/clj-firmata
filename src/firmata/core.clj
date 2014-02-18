@@ -40,6 +40,11 @@
 (def ^{:private true} modes [:input :output :analog :pwm :servo])
 (def ^{:private true} mode-values {:input 0, :output 1 :analog 2 :pwm 3 :servo 4})
 
+; I2C Modes
+(def ^{:private true} i2c-modes [:write :read-once :read-continuously :stop-reading])
+(def ^{:private true} i2c-mode-values {:write 2r00, :read-once 2r01
+                                       :read-continuously 2r10 :stop-reading 2r11})
+
 (def HIGH 1)
 (def LOW 0)
 
@@ -259,6 +264,19 @@
   (write-pin-command board ANALOG_IO_MESSAGE pin (lsb value) (msb value)))
 
 (defn set-sampling-interval
-  "The sampling interval sets how often analog data and i2c data is reported to the client. The default value is 19 milliseconds."
-  [board interval]
-  (serial/write (:port board) [SYSEX_START SAMPLING_INTERVAL (lsb interval) (msb interval) SYSEX_END]))
+  "The sampling interval sets how often analog data and i2c data is reported to the client.
+  The default value is 19 milliseconds."
+  ([board] (set-sampling-interval board 19))
+  ([board interval]
+  (serial/write (:port board) [SYSEX_START SAMPLING_INTERVAL (lsb interval) (msb interval) SYSEX_END])))
+
+(defn send-i2c-request
+  [board slave-address mode & data]
+  {:pre [(pin? slave-address) (mode i2c-mode-values)]}
+  (let [port (:port board)]
+    (serial/write port [SYSEX_START I2C_REQUEST (lsb slave-address) (bit-shift-left (mode i2c-mode-values) 2)])
+    (when data
+      (serial/write port (reduce #(conj %1 (lsb %2) (msb %2)) [] data)))
+    (serial/write port SYSEX_END)
+    ))
+
