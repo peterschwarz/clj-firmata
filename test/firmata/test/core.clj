@@ -112,6 +112,22 @@
                     5 19} (:mappings event))))
           (is (= "Expected event" "but was no event"))))
 
+      (testing "read i2c-reply"
+        (@handler (create-in-stream 0xF0 0x77
+                                    0xA 0x0 ; slave address
+                                    0x4 0x1 ; register
+                                    0x68 0x7 ; data0
+                                    0x01 0x0  ; data1
+                                    0xF7))
+        (if-let [event (<!! (:channel board))]
+          (do
+            (is (= :i2c-reply (:type event)))
+            (is (= 0x0A (:slave-address event)))
+            (is (= 0x84 (:register event)))
+            (is (= [1000 1] (:data event))))
+          (is (= "Expected event" "but was no event"))))
+
+
     )))
 
 (def write-value (atom nil))
@@ -191,7 +207,7 @@
 
       (testing "set digital value"
         (set-digital board 1 1000)
-        (is (= [0x91 0x68 0x7F] @write-value))
+        (is (= [0x91 0x68 0x7] @write-value))
 
         (set-digital board 15 HIGH)
         (is (= [0x9F 0x1 0x0] @write-value))
@@ -201,14 +217,14 @@
 
       (testing "set analog value"
         (set-analog board 4 1000)
-        (is (= [0xE4 0x68 0x7F] @write-value))
+        (is (= [0xE4 0x68 0x7] @write-value))
 
         (is (thrown? AssertionError (set-analog board -1 1000)))
         (is (thrown? AssertionError (set-analog board 16 1000))))
 
       (testing "set sampling interval"
         (set-sampling-interval board 1000)
-        (is (= [0xF0 0x7A 0x68 0x7F 0xF7] @write-value)))
+        (is (= [0xF0 0x7A 0x68 0x7 0xF7] @write-value)))
 
 
     )))
@@ -231,7 +247,7 @@
 
         (testing "ic2 request: read-once"
           (send-i2c-request board 6 :read-once 1000)
-          (is (= [[0xF0 0x76 6 2r0000100] [0x68 0x7F] 0xF7] @writes)))
+          (is (= [[0xF0 0x76 6 2r0000100] [0x68 0x7] 0xF7] @writes)))
 
         (reset! writes [])
 

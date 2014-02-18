@@ -124,6 +124,30 @@
      :value value})
   )
 
+(defn- bytes-to-int
+  [lsb msb]
+  (bit-or (bit-shift-left (bit-and msb 0x7F) 7)
+          (bit-and lsb 0x7F)))
+
+(defn- read-two-byte-data
+  [in]
+  (loop [result []
+         current-byte (.read in)]
+    (if (= SYSEX_END current-byte )
+      result
+      (recur (conj result (bytes-to-int current-byte (.read in)))
+             (.read in)))))
+
+(defmethod read-sysex-event I2C_REPLY
+  [in]
+  (let [slave-address (bytes-to-int (.read in) (.read in))
+        register (bytes-to-int (.read in) (.read in))
+        data (read-two-byte-data in)]
+    {:type :i2c-reply
+     :slave-address slave-address
+     :register register
+     :data data}))
+
 (defn- read-analog-mappings
   [in]
   (loop [result {}
@@ -246,12 +270,12 @@
   (write-pin-command board REPORT_DIGITAL_PORT pin (if enabled? 1 0)))
 
 (defn- lsb "Least significant byte"
-  [b]
-  (bit-and (.byteValue b) 0x7F))
+  [x]
+  (bit-and x 0x7F))
 
 (defn- msb "Most significant byte (of a 16-bit value)"
-  [b]
-  (bit-and (bit-shift-right (.byteValue b) 7) 0x7F))
+  [x]
+  (bit-and (bit-shift-right x 7) 0x7F))
 
 (defn set-digital
   "Writes the digital value (max of 2 bytes) to the given pin (0-15)."
