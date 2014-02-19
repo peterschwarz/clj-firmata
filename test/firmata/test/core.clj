@@ -226,6 +226,9 @@
         (set-sampling-interval board 1000)
         (is (= [0xF0 0x7A 0x68 0x7 0xF7] @write-value)))
 
+      (testing "set sampling interval: default"
+        (set-sampling-interval board)
+        (is (= [0xF0 0x7A 0x13 0x0 0xF7] @write-value)))
 
     )))
 
@@ -271,6 +274,17 @@
 
 
   ))))
+
+(deftest test-board-close
+  (let [port (atom nil)]
+    (with-redefs [serial/open (fn [name rate] :port)
+                  serial/listen (fn [port h skip?] nil)
+                  serial/close (fn [p] (reset! port p) nil)]
+      (let [board (open-board "writable_board")]
+
+        (close board)
+
+        (is (= :port @port))))))
 
 
 (run-tests)
