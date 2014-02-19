@@ -248,23 +248,27 @@
 
       (testing "toggle digital port reporting"
         (enable-digital-port-reporting board 1 true)
-        (is (= [0xD1 1] @write-value))
+        (is (= [0xD0 1] @write-value))
 
         (enable-digital-port-reporting board 15 false)
-        (is (= [0xDF 0] @write-value))
+        (is (= [0xD1 0] @write-value))
 
         (is (thrown? AssertionError (enable-digital-port-reporting board -1 true)))
         (is (thrown? AssertionError (enable-digital-port-reporting board 16 false))))
 
       (testing "set digital value"
-        (set-digital board 1 1000)
-        (is (= [0x91 0x68 0x7] @write-value))
+        (set-digital board 1 :high)
+        (is (= [0x90 0x2 0x0] @write-value))
 
-        (set-digital board 15 HIGH)
-        (is (= [0x9F 0x1 0x0] @write-value))
+        (set-digital board 0 :high)
+        (is (= [0x90 0x3 0x0] @write-value))
 
-        (is (thrown? AssertionError (set-digital board -1 1000)))
-        (is (thrown? AssertionError (set-digital board 16 1000))))
+        (set-digital board 15 :low)
+        (is (= [0x91 0x0 0x0] @write-value))
+
+        (is (thrown? AssertionError (set-digital board 1 :foo)))
+        (is (thrown? AssertionError (set-digital board -1 :high)))
+        (is (thrown? AssertionError (set-digital board 16 :low))))
 
       (testing "set analog value"
         (set-analog board 4 1000)
