@@ -44,6 +44,7 @@
 (def ^{:private true} i2c-modes [:write :read-once :read-continuously :stop-reading])
 (def ^{:private true} i2c-mode-values {:write 2r00, :read-once 2r01
                                        :read-continuously 2r10 :stop-reading 2r11})
+(def ^{:private true} MAX-PORTS 16)
 
 (def HIGH 1)
 (def LOW 0)
@@ -179,23 +180,37 @@
     {:type :unknown-sysex
      :value values}))
 
-(defn- read-pin-message
-  [message-type message-base message in]
-  (let [pin (- message message-base)
+(defn- read-analog
+  [message in]
+  (let [pin (- message ANALOG_IO_MESSAGE)
         value (bytes-to-int (.read in) (.read in))]
-    {:type message-type
+    {:type :analog-msg
+     :pin pin
+     :value value}))
+
+(defn- read-digital
+  [board message in]
+  (let [port (- message DIGITAL_IO_MESSAGE)
+        previous-port (get-in @(:state board)[:digital-in port])
+        updated-port (bytes-to-int (.read in) (.read in))
+        pin-change (- updated-port previous-port)
+        pin (-> pin-change Math/abs BigInteger/valueOf .getLowestSetBit (+ (* 8 port)))
+        value (if (> pin-change 0) :high :low)]
+    (swap! (:state board) assoc-in [:digital-in port] updated-port)
+    {:type :digital-msg
+     :port port
      :pin pin
      :value value}))
 
 (defn- read-event
-  [in]
+  [board in]
   (let [message (.read in)]
     (cond
      (= PROTOCOL_VERSION message) (let [version (read-version in)]
                                     {:type :protocol-version, :version version})
      (= SYSEX_START message) (read-sysex-event in)
-     (<= 0x90 message 0x9F) (read-pin-message :digital-msg DIGITAL_IO_MESSAGE message in)
-     (<= 0xE0 message 0xEF) (read-pin-message :analog-msg ANALOG_IO_MESSAGE message in)
+     (<= 0x90 message 0x9F) (read-digital board message in)
+     (<= 0xE0 message 0xEF) (read-analog message in)
 
      :else {:type :unknown-msg
             :value message
@@ -204,7 +219,7 @@
 (defn- firmata-handler
   [board]
   (fn [in]
-    (let [event (read-event in)]
+    (let [event (read-event board in)]
       (go (>! (:channel board) event)))))
 
 (defn open-board
@@ -213,7 +228,9 @@
   ; TODO add more parameters (baud rate, etc)
   (let [port (serial/open port-name 57600)
         ch (chan)
-        board (Board. port ch (atom {:digital-out (zipmap (range 0 16) (take 8 (repeat 0)))}))]
+        board (Board. port ch
+                      (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
+                             :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))}))]
     (serial/listen port (firmata-handler board) false)
 
 

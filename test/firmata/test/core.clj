@@ -128,12 +128,13 @@
           (is (= "Expected event" "but was no event"))))
 
       (testing "read digital message"
-        (@handler (create-in-stream 0x94 1 0))
+        (@handler (create-in-stream 0x90 1 0))
         (if-let [event (<!! (:channel board))]
           (do
             (is (= :digital-msg (:type event)))
-            (is (= 4 (:pin event)))
-            (is (= 1 (:value event))))
+            (is (= 0 (:port event)))
+            (is (= 0 (:pin event)))
+            (is (= :high (:value event))))
           (is (= "Expected event" "but was no event"))))
 
       (testing "read digital message: low boundary"
@@ -142,16 +143,16 @@
           (do
             (is (= :digital-msg (:type event)))
             (is (= 0 (:pin event)))
-            (is (= 0 (:value event))))
+            (is (= :low (:value event))))
           (is (= "Expected event" "but was no event"))))
 
       (testing "read digital message: high boundary"
-        (@handler (create-in-stream 0x9F 1 0))
+        (@handler (create-in-stream 0x9F 0x00 0x01))
         (if-let [event (<!! (:channel board))]
           (do
             (is (= :digital-msg (:type event)))
-            (is (= 15 (:pin event)))
-            (is (= 1 (:value event))))
+            (is (= 127 (:pin event)))
+            (is (= :high (:value event))))
           (is (= "Expected event" "but was no event"))))
 
       (testing "read analog message"
