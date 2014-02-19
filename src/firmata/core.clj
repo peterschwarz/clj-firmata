@@ -191,16 +191,13 @@
 
      :else {:type :unknown-message
             :value message
-           })
-    )
-  )
+           })))
 
 (defn- firmata-handler
   [board]
   (fn [in]
     (let [event (read-event in)]
       (go (>! (:channel board) event)))))
-
 
 (defn open-board
   "Opens a board on at a given port name"
@@ -212,6 +209,7 @@
     board))
 
 (defn close
+  "Closes the connection to the board."
   [board]
   (serial/close (:port board)))
 
