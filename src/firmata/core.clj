@@ -50,11 +50,24 @@
 
 (defrecord Board [port channel])
 
+; Number conversions
+
+(defn- lsb "Least significant byte"
+  [x]
+  (bit-and x 0x7F))
+
+(defn- msb "Most significant byte (of a 16-bit value)"
+  [x]
+  (bit-and (bit-shift-right x 7) 0x7F))
+
 (defn- to-number
   "Converts a sequence of bytes into an (long) number."
-  [bytes]
-  (long (BigInteger. (byte-array (count bytes) bytes)))
-  )
+  [values]
+  (reduce #(bit-or (bit-shift-left %1 7) (bit-and %2 0x7f)) 0 values))
+
+(defn- bytes-to-int
+  [lsb msb]
+  (to-number [msb lsb]))
 
 (defn- consume-until
   "Consumes bytes from the given input stream until the end-signal is reached."
@@ -117,17 +130,12 @@
   [in]
   (let [pin (.read in)
         mode (get modes (.read in) :future-mode)
-        value (to-number (consume-sysex in [] #(conj %1 (byte %2))))]
+        value (to-number (consume-sysex in '() #(conj %1 (byte %2))))]
     {:type :pin-state
      :pin pin
      :mode mode
      :value value})
   )
-
-(defn- bytes-to-int
-  [lsb msb]
-  (bit-or (bit-shift-left (bit-and msb 0x7F) 7)
-          (bit-and lsb 0x7F)))
 
 (defn- read-two-byte-data
   [in]
@@ -189,7 +197,7 @@
      (<= 0x90 message 0x9F) (read-pin-message :digital-msg DIGITAL_IO_MESSAGE message in)
      (<= 0xE0 message 0xEF) (read-pin-message :analog-msg ANALOG_IO_MESSAGE message in)
 
-     :else {:type :unknown-message
+     :else {:type :unknown-msg
             :value message
            })))
 
@@ -271,14 +279,6 @@
   "Enables digital port reporting on a given pin (0-15)."
   [board pin enabled?]
   (write-pin-command board REPORT_DIGITAL_PORT pin (if enabled? 1 0)))
-
-(defn- lsb "Least significant byte"
-  [x]
-  (bit-and x 0x7F))
-
-(defn- msb "Most significant byte (of a 16-bit value)"
-  [x]
-  (bit-and (bit-shift-right x 7) 0x7F))
 
 (defn set-digital
   "Writes the digital value (max of 2 bytes) to the given pin (0-15)."

@@ -90,13 +90,13 @@
           (is (= "Expected event" "but was no event"))))
 
       (testing "read pin state larger value"
-        (@handler (create-in-stream 0xF0 0x6E 2 1 0x01 0x04 0xF7))
+        (@handler (create-in-stream 0xF0 0x6E 2 1 0x7f 0x1 0xF7))
         (if-let [event (<!! (:channel board))]
           (do
             (is (= :pin-state (:type event)))
             (is (= 2 (:pin event)))
             (is (= :output (:mode event)))
-            (is (= 260 (:value event))))
+            (is (= 255 (:value event))))
           (is (= "Expected event" "but was no event"))))
 
       (testing "read analog mappings"
@@ -161,6 +161,22 @@
             (is (= :analog-msg (:type event)))
             (is (= 5 (:pin event)))
             (is (= 1000 (:value event))))
+          (is (= "Expected event" "but was no event"))))
+
+      (testing "read unknown message"
+        (@handler (create-in-stream 0x01))
+        (if-let [event (<!! (:channel board))]
+          (do
+            (is (= :unknown-msg (:type event)))
+            (is (= 0x01 (:value event))))
+          (is (= "Expected event" "but was no event"))))
+
+      (testing "read unknown SysEx"
+        (@handler (create-in-stream 0xF0 0x01 0x68 0xF7))
+        (if-let [event (<!! (:channel board))]
+          (do
+            (is (= :unknown-sysex (:type event)))
+            (is (= [0x68] (:value event))))
           (is (= "Expected event" "but was no event"))))
 
     )))
