@@ -127,6 +127,41 @@
             (is (= [1000 1] (:data event))))
           (is (= "Expected event" "but was no event"))))
 
+      (testing "read digital message"
+        (@handler (create-in-stream 0x94 1 0))
+        (if-let [event (<!! (:channel board))]
+          (do
+            (is (= :digital-msg (:type event)))
+            (is (= 4 (:pin event)))
+            (is (= 1 (:value event))))
+          (is (= "Expected event" "but was no event"))))
+
+      (testing "read digital message: low boundary"
+        (@handler (create-in-stream 0x90 0 0))
+        (if-let [event (<!! (:channel board))]
+          (do
+            (is (= :digital-msg (:type event)))
+            (is (= 0 (:pin event)))
+            (is (= 0 (:value event))))
+          (is (= "Expected event" "but was no event"))))
+
+      (testing "read digital message: high boundary"
+        (@handler (create-in-stream 0x9F 1 0))
+        (if-let [event (<!! (:channel board))]
+          (do
+            (is (= :digital-msg (:type event)))
+            (is (= 15 (:pin event)))
+            (is (= 1 (:value event))))
+          (is (= "Expected event" "but was no event"))))
+
+      (testing "read analog message"
+        (@handler (create-in-stream 0xE5 0x68 7))
+        (if-let [event (<!! (:channel board))]
+          (do
+            (is (= :analog-msg (:type event)))
+            (is (= 5 (:pin event)))
+            (is (= 1000 (:value event))))
+          (is (= "Expected event" "but was no event"))))
 
     )))
 

@@ -171,24 +171,29 @@
     {:type :unknown-sysex
      :value values}))
 
-(defmulti ^{:private true} read-event
-  (fn [in] (.read in)))
+(defn- read-pin-message
+  [message-type message-base message in]
+  (let [pin (- message message-base)
+        value (bytes-to-int (.read in) (.read in))]
+    {:type message-type
+     :pin pin
+     :value value}))
 
-(defmethod read-event PROTOCOL_VERSION
+(defn- read-event
   [in]
-  (let [version (read-version in)]
-    {:type :protocol-version, :version version}))
+  (let [message (.read in)]
+    (cond
+     (= PROTOCOL_VERSION message) (let [version (read-version in)]
+                                    {:type :protocol-version, :version version})
+     (= SYSEX_START message) (read-sysex-event in)
+     (<= 0x90 message 0x9F) (read-pin-message :digital-msg DIGITAL_IO_MESSAGE message in)
+     (<= 0xE0 message 0xEF) (read-pin-message :analog-msg ANALOG_IO_MESSAGE message in)
 
-(defmethod read-event SYSEX_START
-  [in]
-  (read-sysex-event in))
-
-(defmethod read-event :default
-  [in]
-  {:type :unknown-message
-   ; TODO: Replace value in the message
-   ; :value ?
-   })
+     :else {:type :unknown-message
+            :value message
+           })
+    )
+  )
 
 (defn- firmata-handler
   [board]
