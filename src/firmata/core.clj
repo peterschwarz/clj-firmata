@@ -295,12 +295,16 @@
   (serial/write (:port board) [SYSEX_START SAMPLING_INTERVAL (lsb interval) (msb interval) SYSEX_END])))
 
 (defn send-i2c-request
+  "Sends a I2C read/write request to the board.  "
   [board slave-address mode & data]
   {:pre [(pin? slave-address) (mode i2c-mode-values)]}
   (let [port (:port board)]
     (serial/write port [SYSEX_START I2C_REQUEST (lsb slave-address) (bit-shift-left (mode i2c-mode-values) 2)])
     (when data
       (serial/write port (reduce #(conj %1 (lsb %2) (msb %2)) [] data)))
-    (serial/write port SYSEX_END)
-    ))
+    (serial/write port SYSEX_END)))
+
+(defn send-i2c-config
+  [board delay]
+  (serial/write (:port board) [SYSEX_START I2C_CONFIG (lsb delay) (msb delay) SYSEX_END] ))
 

@@ -229,7 +229,7 @@
 
     )))
 
-(deftest test-i2c-request
+(deftest test-i2c-messages
   (let [writes (atom [])]
     (with-redefs [serial/open (fn [name rate] :port)
                   serial/listen (fn [port h skip?] nil)
@@ -260,6 +260,12 @@
         (testing "ic2 request: stop-reading"
           (send-i2c-request board 7 :stop-reading)
           (is (= [[0xF0 0x76 7 2r1100] 0xF7 ] @writes)))
+
+        (reset! writes [])
+
+        (testing "ic2 config: delay"
+          (send-i2c-config board 1000)
+          (is (= [[0xF0 0x78 0x68 0x7 0xF7]] @writes)))
 
         (reset! writes [])
 
