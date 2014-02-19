@@ -9,8 +9,9 @@
 (defn create-event-receiver
   [board event-handler]
   (a/go (loop [event (<! (:channel board))]
-          (event-handler event)
-          (recur (<! (:channel board))))))
+          (when event
+            (event-handler event)
+            (recur (<! (:channel board)))))))
 
 (defn stop-receiver
   [receiver]

@@ -1,5 +1,5 @@
 (ns firmata.core
-  (:require [clojure.core.async :refer [chan go <! >!]]
+  (:require [clojure.core.async :refer [chan go <! >! close!]]
             [serial.core :as serial]))
 
 ; Message Types
@@ -239,7 +239,8 @@
 (defn close
   "Closes the connection to the board."
   [board]
-  (serial/close (:serial board)))
+  (serial/close (:serial board))
+  (close! (:channel board)))
 
 (defn query-firmware
   "Query the firmware of the board"
