@@ -8,7 +8,7 @@
 
 Add the following to your `project.clj`
 
-	[clj-firmata 0.1.0]
+	[clj-firmata 1.0.0-SNAPSHOT]
 
 ### Connect to a Board
 
@@ -78,7 +78,7 @@ will result in the following events on the channel:
 
 Board connections should be closed when complete:
 
-    (close board)
+    (close! board)
     
 The board's channel is closed as well.
 

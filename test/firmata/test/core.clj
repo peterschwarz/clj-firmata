@@ -341,7 +341,7 @@
                   serial/close (fn [p] (reset! port p) nil)]
       (let [board (open-board "writable_board")]
 
-        (close board)
+        (close! board)
 
         (is (= :port @port))))))
 

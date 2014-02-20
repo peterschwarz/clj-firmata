@@ -1,5 +1,5 @@
 (ns firmata.core
-  (:require [clojure.core.async :refer [chan go <! >! close!]]
+  (:require [clojure.core.async :as a]
             [serial.core :as serial]))
 
 ; Message Types
@@ -220,14 +220,14 @@
   [board]
   (fn [in]
     (let [event (read-event board in)]
-      (go (>! (:channel board) event)))))
+      (a/go (>! (:channel board) event)))))
 
 (defn open-board
   "Opens a board on at a given port name"
   [port-name]
-  ; TODO add more parameters (baud rate, etc)
+  ; TODO add more parameters (baud rate, event-buffer size)
   (let [port (serial/open port-name 57600)
-        ch (chan)
+        ch (a/chan (a/sliding-buffer 1024))
         board (Board. port ch
                       (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
                              :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))}))]
@@ -236,11 +236,11 @@
 
     board))
 
-(defn close
+(defn close!
   "Closes the connection to the board."
   [board]
   (serial/close (:serial board))
-  (close! (:channel board)))
+  (a/close! (:channel board)))
 
 (defn query-firmware
   "Query the firmware of the board"
