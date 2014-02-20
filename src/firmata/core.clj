@@ -324,8 +324,11 @@
   "Writes the analog value (max of 2 bytes) to the given pin (0-15)."
   ; todo: pins > 15
   [board pin value]
-  {:pre [(pin? pin 16)]}
-  (serial/write (:serial board) [(pin-command ANALOG_IO_MESSAGE pin) (lsb value) (msb value)]))
+  {:pre [(pin? pin)]}
+  (serial/write (:serial board)
+                (if (> pin 15)
+                  [SYSEX_START EXTENDED_ANALOG pin (lsb value) (msb value) SYSEX_END]
+                  [(pin-command ANALOG_IO_MESSAGE pin) (lsb value) (msb value)])))
 
 (defn set-sampling-interval
   "The sampling interval sets how often analog data and i2c data is reported to the client.

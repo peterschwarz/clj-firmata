@@ -275,8 +275,11 @@
         (set-analog board 4 1000)
         (is (= [0xE4 0x68 0x7] @write-value))
 
+        (set-analog board 16 1000)
+        (is (= [0xF0 0x6F 16 0x68 0x7 0xF7] @write-value))
+
         (is (thrown? AssertionError (set-analog board -1 1000)))
-        (is (thrown? AssertionError (set-analog board 16 1000))))
+        (is (thrown? AssertionError (set-analog board 128 1000))))
 
       (testing "set sampling interval"
         (set-sampling-interval board 1000)
