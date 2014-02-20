@@ -48,7 +48,7 @@ For analog values a pin must be in `:pwm` mode:
     (set-pin-mode board 11 :pwm)
     (set-analog board 11 255)
     
-The above will set the brightness of an LED to maximum brightness
+The above will set the brightness of an LED on pin 11 to maximum brightness
     
 #### Receiving Information
 
