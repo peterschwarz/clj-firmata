@@ -23,7 +23,8 @@
   ([board analog-pin event-handler] (on-analog-event board analog-pin event-handler 5))
   ([board analog-pin event-handler delta]
   (let [control-chan (a/chan 1)
-        filtered-ch (a/pipe (:channel board) (a/filter> #(= (select-keys % [:type :pin]) {:type :analog-msg :pin analog-pin}) (a/chan)) true)]
+        pipe (a/pipe (:channel board) (a/chan) true)
+        filtered-ch (a/filter< #(= (select-keys % [:type :pin]) {:type :analog-msg :pin analog-pin}) pipe)]
     (a/go (loop [control :running
                  prev nil
                  event (<! filtered-ch)]
