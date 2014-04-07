@@ -76,7 +76,7 @@ This receiver can be stopped like so:
 
 Similarly for analog in reporting (on `A0` in this example):
 
-	(enable-analog-in-reporting board 0 true)
+    (enable-analog-in-reporting board 0 true)
 
 will result in the following events on the channel:
 
@@ -85,6 +85,7 @@ will result in the following events on the channel:
           (is (= 0 (:pin event)))
           (is (= 1000 (:value event)))
 
+Like `on-digital-event`, there is an `on-analog-event` which will provide the events to a particular analog pin.  
 
 
 ### Close the connection to a Board
