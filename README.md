@@ -38,24 +38,26 @@ will result in an event of type `:firmware-report` to be placed on the channel. 
 Setting a digital pin value to HIGH (1)
 
     (set-digital board 13 :high)
-    
+
 and likewise to LOW (0)
 
     (set-digital board 13 :low)
-    
+
 For analog values a pin must be in `:pwm` mode:
 
     (set-pin-mode board 11 :pwm)
     (set-analog board 11 255)
-    
+
 The above will set the brightness of an LED on pin 11 to maximum brightness
-    
+
 #### Receiving Information
 
 To enable digital pin reporting:
 
-	(enable-digital-port-reporting board 3 true)
-	
+    (-> board
+      (set-pin-mode 3 :input)
+      (enable-digital-port-reporting 3 true))
+
 This will result in the following events on the channel:
 
      (let [event (<!! (:channel board))]
@@ -63,10 +65,19 @@ This will result in the following events on the channel:
             (is (= 3 (:pin event)))
             (is (= :high (:value event)))
 
+For convenience, the `firmata.receiver` namspace provides the function `on-digital-event`, which may be used to filter events with the `:digital-msg` type and to a specific pin.  For example:
+
+    (def receiver (on-digital-event board 3 
+      #(if (= :high (:value %)) "Pressed" "Released")))
+
+This receiver can be stopped like so:
+
+    (stop-receiver receiver)
+
 Similarly for analog in reporting (on `A0` in this example):
 
 	(enable-analog-in-reporting board 0 true)
-	
+
 will result in the following events on the channel:
 
      (let [event (<!! (:channel board))]
@@ -74,12 +85,14 @@ will result in the following events on the channel:
           (is (= 0 (:pin event)))
           (is (= 1000 (:value event)))
 
+
+
 ### Close the connection to a Board
 
 Board connections should be closed when complete:
 
     (close! board)
-    
+
 The board's channel is closed as well.
 
 
