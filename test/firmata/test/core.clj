@@ -27,7 +27,7 @@
 (def handler (atom nil))
 
 (deftest test-read-events
-  (with-redefs [serial/open (fn [name rate] :port)
+  (with-redefs [serial/open (fn [name _ rate] {:port name :rate rate})
                 serial/listen (fn [port h skip?] (reset! handler h))]
 
     (let [board (open-board "some_board")]
@@ -185,7 +185,7 @@
 (def write-value (atom nil))
 
 (deftest test-write
-  (with-redefs [serial/open (fn [name rate] :port)
+  (with-redefs [serial/open (fn [name _ rate] :port)
                 serial/listen (fn [port h skip?] nil)
                 serial/write (fn [port x] (reset! write-value x) nil)]
     (let [board (open-board "writable_board")]
@@ -293,7 +293,7 @@
 
 (deftest test-i2c-messages
   (let [writes (atom [])]
-    (with-redefs [serial/open (fn [name rate] :port)
+    (with-redefs [serial/open (fn [name _ rate] :port)
                   serial/listen (fn [port h skip?] nil)
                   serial/write (fn [port x] (swap! writes conj x) nil)]
       (let [board (open-board "writable_board")]
@@ -336,7 +336,7 @@
 
 (deftest test-board-close
   (let [port (atom nil)]
-    (with-redefs [serial/open (fn [name rate] :port)
+    (with-redefs [serial/open (fn [name _ rate] :port)
                   serial/listen (fn [port h skip?] nil)
                   serial/close (fn [p] (reset! port p) nil)]
       (let [board (open-board "writable_board")]

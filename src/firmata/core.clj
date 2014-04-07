@@ -224,10 +224,10 @@
 
 (defn open-board
   "Opens a board on at a given port name"
-  [port-name]
-  ; TODO add more parameters (baud rate, event-buffer size)
-  (let [port (serial/open port-name 57600)
-        ch (a/chan (a/sliding-buffer 1024))
+  [port-name & {:keys [baud-rate event-buffer-size]
+                 :or {baud-rate 57600 event-buffer-size 1024}}]
+  (let [port (serial/open port-name :baud-rate baud-rate)
+        ch (a/chan (a/sliding-buffer event-buffer-size))
         board (Board. port ch
                       (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
                              :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))}))]
