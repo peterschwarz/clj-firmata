@@ -1,27 +1,32 @@
 (ns firmata.test.receiver
   (:require [clojure.test :refer :all]
             [firmata.receiver :refer :all]
-            [clojure.core.async :refer [<!! >!! chan timeout]]))
+            [clojure.core.async
+             :as a
+             :refer [<!! >!! chan timeout]]))
 
 (defn- mock-board []
-    {:channel (chan)})
+    {:channel (chan 1)})
 
 (deftest receive-event
-    (let [result (atom nil)
-          board (mock-board)
-          receiver (on-event board #(reset! result %))]
-      (>!! (:channel board) {:type :any :value "Foo"})
+  (let [result (atom nil)
+        board (mock-board)
+        receiver (on-event board #(reset! result %))]
+    (>!! (:channel board) {:type :any :value "Foo"})
 
-      (is (= {:type :any :value "Foo"} @result))))
+    (is (= {:type :any :value "Foo"} @result))
+
+    (a/close! (:channel board))))
 
 (deftest stop-receiver
   (let [result (atom nil)
           board (mock-board)
           receiver (on-event board #(reset! result %))]
-      (stop-receiver! receiver)
-      (>!! (:channel board) {:type :any :value "Foo"})
+    (stop-receiver! receiver)
+    (>!! (:channel board) {:type :any :value "Foo"})
 
-      (is (nil? @result))))
+    (is (nil? @result))
+    (a/close! (:channel board))))
 
 (deftest analog-receiver
 
@@ -46,7 +51,8 @@
 
       (<!! (timeout 100)) ; wait for the go thread to resolve
 
-      (is (= {:type :analog-msg, :pin 0, :value 100} @result))))
+      (is (= {:type :analog-msg, :pin 0, :value 100} @result))
+      (a/close! (:channel board))))
 
 
   (testing "Stop receiver"
@@ -56,7 +62,9 @@
       (stop-receiver! receiver)
       (>!! (:channel board) {:type :analog-msg, :pin 0, :value 100})
 
-      (is (nil? @result))))
+      (is (nil? @result))
+
+      (a/close! (:channel board))))
 
   )
 
@@ -87,7 +95,9 @@
 
       (<!! (timeout 100)) ; wait for the go thread to resolve
 
-      (is (= {:type :digital-msg, :pin 0, :value :low} @result))))
+      (is (= {:type :digital-msg, :pin 0, :value :low} @result))
+
+      (a/close! (:channel board))))
 
    (testing "Stop receiver"
     (let [result (atom nil)
@@ -96,6 +106,8 @@
       (stop-receiver! receiver)
       (>!! (:channel board) {:type :digital-msg, :pin 0, :value :low})
 
-      (is (nil? @result))))
+      (is (nil? @result))
+
+      (a/close! (:channel board))))
 )
 
