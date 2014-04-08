@@ -223,7 +223,10 @@
       (a/go (>! (:channel board) event)))))
 
 (defn open-board
-  "Opens a board on at a given port name"
+  "Opens a board on at a given port name.
+  The baud rate may be set with the option :baud-rate (default value 57600).
+  The buffer size for the events may be set with the option :event-buffer size
+  (default value 1024)."
   [port-name & {:keys [baud-rate event-buffer-size]
                  :or {baud-rate 57600 event-buffer-size 1024}}]
   (let [port (serial/open port-name :baud-rate baud-rate)
