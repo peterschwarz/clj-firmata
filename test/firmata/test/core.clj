@@ -24,9 +24,11 @@
     (ByteArrayInputStream. (.array buffer))))
 
 
-(def handler (atom nil))
 
 (deftest test-read-events
+
+  (let [handler (atom nil)]
+
   (with-redefs [serial/open (fn [name _ rate] {:port name :rate rate})
                 serial/listen (fn [port h skip?] (reset! handler h))]
 
@@ -180,11 +182,10 @@
             (is (= [0x68] (:value event))))
           (is (= "Expected event" "but was no event"))))
 
-    )))
-
-(def write-value (atom nil))
+    ))))
 
 (deftest test-write
+  (let [write-value (atom nil)]
   (with-redefs [serial/open (fn [name _ rate] :port)
                 serial/listen (fn [port h skip?] nil)
                 serial/write (fn [port x] (reset! write-value x) nil)]
@@ -289,7 +290,7 @@
         (set-sampling-interval board)
         (is (= [0xF0 0x7A 0x13 0x0 0xF7] @write-value)))
 
-    )))
+    ))))
 
 (deftest test-i2c-messages
   (let [writes (atom [])]
@@ -344,7 +345,3 @@
         (close! board)
 
         (is (= :port @port))))))
-
-
-(run-tests)
-

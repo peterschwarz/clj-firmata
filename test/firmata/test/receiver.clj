@@ -4,7 +4,7 @@
             [clojure.core.async :refer [<!! >!! chan timeout]]))
 
 (defn- mock-board []
-  {:channel (chan)})
+    {:channel (chan)})
 
 (deftest receive-event
     (let [result (atom nil)
@@ -99,5 +99,3 @@
       (is (nil? @result))))
 )
 
-
-(run-tests)
