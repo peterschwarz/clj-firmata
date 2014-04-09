@@ -1,5 +1,5 @@
 (ns firmata.core
-  (:require [clojure.core.async :as a]
+  (:require [clojure.core.async :as a :refer [go chan >! >!! <!]]
             [serial.core :as serial]))
 
 ; Message Types
@@ -46,10 +46,64 @@
                                        :read-continuously 2r10 :stop-reading 2r11})
 (def ^{:private true} MAX-PORTS 16)
 
-(def HIGH 1)
-(def LOW 0)
+(defprotocol Firmata
+  (close! [board] "Closes the connection to the board.")
 
-(defrecord Board [serial channel state])
+  ; Various queries
+  (query-firmware [board] "Query the firmware of the board.")
+
+  (query-capabilities [board] "Query the capabilities of the board.")
+
+  (query-version [board] "Query the firmware version of the board.")
+
+  (query-analog-mappings
+   [board]
+   "Analog messages are numbered 0 to 15, which traditionally refer to the Arduino pins labeled A0, A1, A2, etc.
+   However, these pins are actually configured using \"normal\" pin numbers in the pin mode message, and when
+   those pins are uses for non-analog functions. The analog mapping query provides the information about which pins
+   (as used with Firmata's pin mode message) correspond to the analog channels")
+
+  (query-pin-state [board pin] "Queries the pin state of a given pin (0-127) on the board")
+
+  (set-pin-mode
+   [board pin mode]
+   "Sets the mode of a pin (0 to 127), one of: :input, :output, :analog, :pwm, :servo, :i2c")
+
+  (enable-analog-in-reporting
+   [board pin enabled?]
+   "Enables 'analog in' reporting of a given pin (0-15).")
+
+  (enable-digital-port-reporting
+   [board pin enabled?]
+   "Enables digital port reporting on a given pin (0-15).")
+
+  (set-digital
+   [board pin value]
+   "Writes the digital value (max of 2 bytes) to the given pin (0-15).")
+
+  (set-analog
+   [board pin value]
+   "Writes the analog value (max of 2 bytes) to the given pin (0-127).")
+
+  (set-sampling-interval
+   [board interval]
+   "The sampling interval sets how often analog data and i2c data is reported to the client.
+   The system default value is 19 milliseconds.")
+
+  (send-message
+   [board args]
+   "Sends an arbitrary message to the board.  Useful for I2C message,
+   which have user-defined data")
+
+  (event-channel
+   [board]
+   "Returns a channel which provides all of the events that have been returned from the board.")
+
+  (event-publisher
+   [board]
+   "Returns a publisher which provides events by [:type :pin]")
+
+  )
 
 ; Number conversions
 
@@ -74,16 +128,16 @@
   "Consumes bytes from the given input stream until the end-signal is reached."
   [end-signal in initial accumulator]
   (loop [current-value (.read in)
-          result initial]
-     (if (= end-signal current-value)
-       result
-       (recur (.read in)
-              (accumulator result current-value)))))
+         result initial]
+    (if (= end-signal current-value)
+      result
+      (recur (.read in)
+             (accumulator result current-value)))))
 
 (defn- consume-sysex
   "Consumes bytes until the end of a SysEx response."
   [in initial accumulator]
-   (consume-until SYSEX_END in initial accumulator))
+  (consume-until SYSEX_END in initial accumulator))
 
 (defn- read-capabilities
   "Reads the capabilities response from the input stream"
@@ -116,7 +170,7 @@
 (defmethod read-sysex-event REPORT_FIRMWARE
   [in]
   (let [version (read-version in)
-       name (consume-sysex in "" #(str %1 (char %2)))]
+        name (consume-sysex in "" #(str %1 (char %2)))]
     {:type :firmware-report
      :version version
      :name name}))
@@ -214,7 +268,7 @@
 
      :else {:type :unknown-msg
             :value message
-           })))
+            })))
 
 (defn- firmata-handler
   [board]
@@ -222,74 +276,10 @@
     (let [event (read-event board in)]
       (a/go (>! (:channel board) event)))))
 
-(defn open-board
-  "Opens a board on at a given port name.
-  The baud rate may be set with the option :baud-rate (default value 57600).
-  The buffer size for the events may be set with the option :event-buffer size
-  (default value 1024)."
-  [port-name & {:keys [baud-rate event-buffer-size]
-                 :or {baud-rate 57600 event-buffer-size 1024}}]
-  (let [port (serial/open port-name :baud-rate baud-rate)
-        ch (a/chan (a/sliding-buffer event-buffer-size))
-        board (Board. port ch
-                      (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
-                             :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))}))]
-    (serial/listen port (firmata-handler board) false)
-
-
-    board))
-
-(defn close!
-  "Closes the connection to the board."
-  [board]
-  (serial/close (:serial board))
-  (a/close! (:channel board)))
-
-(defn query-firmware
-  "Query the firmware of the board"
-  [board]
-  (serial/write (:serial board) [SYSEX_START REPORT_FIRMWARE SYSEX_END])
-  board)
-
-(defn query-capabilities
-  "Query the capabilities of the board"
-  [board]
-  (serial/write (:serial board) [SYSEX_START CAPABILITY_QUERY SYSEX_END])
-  board)
-
-(defn query-version
-  "Query the firmware version of the board"
-  [board]
-  (serial/write (:serial board) PROTOCOL_VERSION)
-  board)
-
-(defn query-analog-mappings
-  "Analog messages are numbered 0 to 15, which traditionally refer to the Arduino pins labeled A0, A1, A2, etc.
-  However, these pins are actually configured using \"normal\" pin numbers in the pin mode message, and when
-  those pins are uses for non-analog functions. The analog mapping query provides the information about which pins
-  (as used with Firmata's pin mode message) correspond to the analog channels"
-  [board]
-  (serial/write (:serial board) [SYSEX_START ANALOG_MAPPING_QUERY SYSEX_END])
-  board)
-
 (defn- pin?
   ([pin] (pin? pin 128))
   ([pin pin-count]
-  (and (number? pin) (>= pin 0) (< pin pin-count))))
-
-(defn query-pin-state
-  "Queries the pin state of a given pin (0-127) on the board"
-  [board pin]
-  {:pre [(pin? pin)]}
-  (serial/write (:serial board) [SYSEX_START PIN_STATE_QUERY pin SYSEX_END])
-  board)
-
-(defn set-pin-mode
-  "Sets the mode of a pin (0 to 127), one of: :input, :output, :analog, :pwm, :servo"
-  [board pin mode]
-  {:pre [(pin? pin) (mode mode-values)]}
-  (serial/write (:serial board) [SET_PIN_IO_MODE pin (mode mode-values)])
-  board)
+   (and (number? pin) (>= pin 0) (< pin pin-count))))
 
 (defn- port-of
   "Returns the port of the given pin"
@@ -302,69 +292,131 @@
 
 (defn- enable-reporting
   [board report-type address enabled?]
-  (serial/write (:serial board) [(pin-command report-type address) (if enabled? 1 0)])
-  board)
+  (send-message board [(pin-command report-type address) (if enabled? 1 0)]))
 
-(defn enable-analog-in-reporting
-  "Enables 'analog in' reporting of a given pin (0-15)."
-  [board pin enabled?]
-  {:pre [(pin? pin 16)]}
-  (enable-reporting board REPORT_ANALOG_PIN pin enabled?)
-  board)
+(defn open-board
+  "Opens a connection to a board on at a given port name.
+  The baud rate may be set with the option :baud-rate (default value 57600).
+  The buffer size for the events may be set with the option :event-buffer size
+  (default value 1024)."
+  [port-name & {:keys [baud-rate event-buffer-size]
+                :or {baud-rate 57600 event-buffer-size 1024}}]
+  (let [port (serial/open port-name :baud-rate baud-rate)
+        read-ch (chan (a/sliding-buffer event-buffer-size))
+        mult-ch (a/mult read-ch)
+        pub-ch (chan (a/sliding-buffer event-buffer-size))
+        publisher (a/pub pub-ch #(vector (:type %) (:pin %)))
+        write-ch (chan 1)
+        board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
+                           :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})]
+    (serial/listen port (firmata-handler {:state board-state :channel read-ch}) false)
 
-(defn enable-digital-port-reporting
-  "Enables digital port reporting on a given pin (0-15)."
-  [board pin enabled?]
-  {:pre [(pin? pin 16)]}
-  (enable-reporting board REPORT_DIGITAL_PORT (port-of pin) enabled?)
-  board)
+    (a/tap mult-ch pub-ch)
 
-(defn set-digital
-  "Writes the digital value (max of 2 bytes) to the given pin (0-15)."
-  [board pin value]
-  {:pre [ (pin? pin 16) (or (= :high value) (= :low value))]}
-  (let [port (port-of pin)
-        pin-value (bit-shift-left 1 (bit-and pin 0x07))
-        current-port (get-in @(:state board)[:digital-out port])
-        next-port (if (= :high value)
-                    (bit-or current-port pin-value)
-                    (bit-and current-port (bit-not pin-value)))]
-    (swap! (:state board) assoc-in [:digital-out port] next-port)
-  (serial/write (:serial board) [(pin-command DIGITAL_IO_MESSAGE port) (lsb next-port) (msb next-port)]))
-  board)
+    (go (loop []
+          (when-let [data (<! write-ch)]
+            (serial/write port data)
+            (recur))))
 
-(defn set-analog
-  "Writes the analog value (max of 2 bytes) to the given pin (0-15)."
-  ; todo: pins > 15
-  [board pin value]
-  {:pre [(pin? pin)]}
-  (serial/write (:serial board)
-                (if (> pin 15)
-                  [SYSEX_START EXTENDED_ANALOG pin (lsb value) (msb value) SYSEX_END]
-                  [(pin-command ANALOG_IO_MESSAGE pin) (lsb value) (msb value)]))
-  board)
+    (reify Firmata
+      (close!
+       [this]
+       (a/close! write-ch)
+       (a/close! read-ch)
+       (serial/close port))
 
-(defn set-sampling-interval
-  "The sampling interval sets how often analog data and i2c data is reported to the client.
-  The default value is 19 milliseconds."
-  ([board] (set-sampling-interval board 19))
-  ([board interval]
-  (serial/write (:serial board) [SYSEX_START SAMPLING_INTERVAL (lsb interval) (msb interval) SYSEX_END])
-   board))
+      (query-firmware
+       [this]
+       (send-message this [SYSEX_START REPORT_FIRMWARE SYSEX_END]))
+
+      (query-capabilities
+       [this]
+       (send-message this [SYSEX_START CAPABILITY_QUERY SYSEX_END]))
+
+      (query-version
+       [this]
+       (send-message this PROTOCOL_VERSION))
+
+      (query-analog-mappings
+       [this]
+       (send-message this [SYSEX_START ANALOG_MAPPING_QUERY SYSEX_END]))
+
+      (query-pin-state
+       [this pin]
+       (assert (pin? pin) "must supply a valid pin value 0-127")
+       (send-message this [SYSEX_START PIN_STATE_QUERY pin SYSEX_END]))
+
+      (set-pin-mode
+       [this pin mode]
+       (assert (pin? pin) "must supply a valid pin value 0-127")
+       (assert (mode mode-values) (str "must supply a valid mode: " (clojure.string/join ", " modes)))
+       (send-message this [SET_PIN_IO_MODE pin (mode mode-values)]))
+
+      (enable-analog-in-reporting
+       [this pin enabled?]
+       (assert (pin? pin 16) "must supply a valid pin value 0-15")
+       (enable-reporting this REPORT_ANALOG_PIN pin enabled?))
+
+      (enable-digital-port-reporting
+       [this pin enabled?]
+       (assert (pin? pin 16) "must supply a valid pin value 0-15")
+       (enable-reporting this REPORT_DIGITAL_PORT (port-of pin) enabled?))
+
+      (set-digital
+       [this pin value]
+       (assert (pin? pin 16) "must supply a valid pin value 0-15")
+       (assert (or (= :high value) (= :low value)) "must supply either :high or :low")
+
+       (let [port (port-of pin)
+             pin-value (bit-shift-left 1 (bit-and pin 0x07))
+             current-port (get-in @board-state [:digital-out port])
+             next-port (if (= :high value)
+                         (bit-or current-port pin-value)
+                         (bit-and current-port (bit-not pin-value)))]
+         (swap! board-state assoc-in [:digital-out port] next-port)
+         (send-message this [(pin-command DIGITAL_IO_MESSAGE port) (lsb next-port) (msb next-port)])))
+
+      (set-analog
+       [this pin value]
+       (assert (pin? pin) "must supply a valid pin value 0-127")
+       (send-message this
+            (if (> pin 15)
+              [SYSEX_START EXTENDED_ANALOG pin (lsb value) (msb value) SYSEX_END]
+              [(pin-command ANALOG_IO_MESSAGE pin) (lsb value) (msb value)])))
+
+      (set-sampling-interval
+       [this interval]
+       (send-message this [SYSEX_START SAMPLING_INTERVAL (lsb interval) (msb interval) SYSEX_END]))
+
+      (send-message
+       [this data]
+       (>!! write-ch data)
+       this)
+
+      (event-channel
+       [this]
+       (let [ec (chan)]
+         (a/tap mult-ch ec)
+         ec))
+
+      (event-publisher
+       [this]
+       publisher)
+
+      )))
 
 (defn send-i2c-request
-  "Sends a I2C read/write request to the board.  "
-  [board slave-address mode & data]
-  {:pre [(pin? slave-address) (mode i2c-mode-values)]}
-  (let [port (:serial board)]
-    (serial/write port [SYSEX_START I2C_REQUEST (lsb slave-address) (bit-shift-left (mode i2c-mode-values) 2)])
-    (when data
-      (serial/write port (reduce #(conj %1 (lsb %2) (msb %2)) [] data)))
-    (serial/write port SYSEX_END))
-  board)
+ "Sends an I2C read/write request with optional extended data."
+ [board slave-address mode & data]
+ {:pre [(mode i2c-mode-values)]}
+ (send-message board (concat [SYSEX_START I2C_REQUEST (lsb slave-address) (bit-shift-left (mode i2c-mode-values) 2)]
+                             (reduce #(conj %1 (lsb %2) (msb %2)) [] data)
+                             [SYSEX_END])))
 
 (defn send-i2c-config
-  [board delay]
-  (serial/write (:serial board) [SYSEX_START I2C_CONFIG (lsb delay) (msb delay) SYSEX_END] )
-  board)
-
+  "Sends an I2C config message with a delay and optional user-defined data."
+  [board delay & data]
+  (let [msg (concat [SYSEX_START I2C_CONFIG (lsb delay) (msb delay)]
+                    data
+                    [SYSEX_END])]
+    (send-message board msg)))
