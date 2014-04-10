@@ -9,6 +9,10 @@
 (defn- make-chan []
   (chan (a/sliding-buffer 1)))
 
+(defn- send-msg [ch msg]
+  (is (a/alts!! [[ch msg]
+             (timeout 100)])))
+
 (defn- mock-board [read-ch]
   (let [mult-ch (a/mult read-ch)
         e-ch (make-chan)
@@ -20,7 +24,7 @@
 
     (reify
       Firmata
-      (event-channel [this] read-ch)
+      (event-channel [this] e-ch)
       (event-publisher [this] p)
       (release-event-channel [this ch] (a/untap mult-ch ch)))))
 
@@ -29,7 +33,7 @@
         result (atom nil)
         board (mock-board channel)
         receiver (on-event board #(reset! result %))]
-    (>!! channel {:type :any :value "Foo"})
+    (send-msg channel {:type :any :value "Foo"})
 
     (<!! (timeout 10))
 
@@ -43,7 +47,7 @@
         board (mock-board channel)
         receiver (on-event board #(reset! result %))]
     (stop-receiver! receiver)
-    (>!! channel {:type :any :value "Foo"})
+    (send-msg channel {:type :any :value "Foo"})
 
     (is (nil? @result))
     (a/close! channel)))
@@ -56,19 +60,19 @@
           result (atom nil)
           board (mock-board channel)
           receiver (on-analog-event board 0 #(reset! result %))]
-      (>!! channel {:type :any, :value "Foo"})
+      (send-msg channel {:type :any, :value "Foo"})
 
       (<!! (timeout 10)) ; wait for the go thread to resolve
 
       (is (nil? @result))
 
-      (>!! channel {:type :analog-msg, :pin 1, :value 100})
+      (send-msg channel {:type :analog-msg, :pin 1, :value 100})
 
       (<!! (timeout 10)) ; wait for the go thread to resolve
 
       (is (nil? @result))
 
-      (>!! channel {:type :analog-msg, :pin 0, :value 100})
+      (send-msg channel {:type :analog-msg, :pin 0, :value 100})
 
       (<!! (timeout 10)) ; wait for the go thread to resolve
 
@@ -82,7 +86,7 @@
           board (mock-board channel)
           receiver (on-analog-event board 0 #(reset! result %))]
       (stop-receiver! receiver)
-      (>!! channel {:type :analog-msg, :pin 0, :value 100})
+      (send-msg channel {:type :analog-msg, :pin 0, :value 100})
 
       (is (nil? @result))
 
@@ -96,25 +100,25 @@
           result (atom nil)
           board (mock-board channel)
           receiver (on-digital-event board 0 #(reset! result %))]
-      (>!! channel {:type :any, :value "Foo"})
+      (send-msg channel {:type :any, :value "Foo"})
 
       (<!! (timeout 10)) ; wait for the go thread to resolve
 
       (is (nil? @result))
 
-      (>!! channel {:type :analog-msg, :pin 1, :value 100})
+      (send-msg channel {:type :analog-msg, :pin 1, :value 100})
 
       (<!! (timeout 10)) ; wait for the go thread to resolve
 
       (is (nil? @result))
 
-      (>!! channel {:type :digital-msg, :pin 1, :value :high})
+      (send-msg channel {:type :digital-msg, :pin 1, :value :high})
 
       (<!! (timeout 10)) ; wait for the go thread to resolve
 
       (is (nil? @result))
 
-      (>!! channel {:type :digital-msg, :pin 0, :value :low})
+      (send-msg channel {:type :digital-msg, :pin 0, :value :low})
 
       (<!! (timeout 10)) ; wait for the go thread to resolve
 
@@ -127,13 +131,12 @@
            result (atom nil)
            board (mock-board channel)
            receiver (on-digital-event board 0 #(reset! result %))]
-      (stop-receiver! receiver)
-      (println "adding to channel")
-      (>!! channel {:type :digital-msg, :pin 0, :value :low})
-      (println "added to channel")
+       (stop-receiver! receiver)
 
-      (is (nil? @result))
+       (send-msg channel {:type :digital-msg, :pin 0, :value :low})
 
-      (a/close! channel)))
+       (is (nil? @result))
+
+       (a/close! channel)))
 )
 

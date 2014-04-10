@@ -2,7 +2,8 @@
   (:require [firmata.core :refer :all]
             [clojure.core.async :as a]))
 
-(defrecord EventReceiver [handler source-channel])
+(defprotocol EventHandler
+  (stop-receiver! [handler] "Stops receiving events on a given handler"))
 
 (defn- on-channel-event-with-prev
   [channel event-handler]
@@ -12,8 +13,7 @@
      (when event
        (event-handler event prev)
        (recur event
-              (<! channel)))))
-  (EventReceiver. event-handler channel))
+              (<! channel))))))
 
 (defn- on-channel-event
   [channel event-handler]
@@ -22,7 +22,12 @@
 (defn on-event
   "Add a general event receiver. `event-handler` takes should take one argument: event."
   [board event-handler]
-  (on-channel-event (event-channel board) event-handler))
+  (let [ch (event-channel board)]
+    (on-channel-event ch event-handler)
+    (reify EventHandler
+      (stop-receiver!
+       [this]
+       (release-event-channel board ch)))))
 
 (defn- subscription-chan
   [board target]
@@ -30,24 +35,31 @@
     (a/sub (event-publisher board) target filtered-ch)
     filtered-ch))
 
+(defn- unsub-handler
+  [board channel topic]
+  (reify EventHandler
+    (stop-receiver!
+     [this]
+     (a/unsub (event-publisher board) topic channel))))
+
 (defn on-digital-event
   "Creates a receiver for digital events on a given pin. `event-handler` takes should take one argument: event."
   [board digital-pin event-handler]
-  (let [filtered-ch (subscription-chan board [:digital-msg digital-pin])]
-    (on-channel-event filtered-ch event-handler)))
+  (let [topic [:digital-msg digital-pin]
+        filtered-ch (subscription-chan board topic)]
+    (on-channel-event filtered-ch event-handler)
+    (unsub-handler board filtered-ch topic)))
 
 (defn on-analog-event
   "Create a receiver for analog events on a given pin. `event-handler` takes should take one argument: event."
   ([board analog-pin event-handler] (on-analog-event board analog-pin event-handler 5))
   ([board analog-pin event-handler delta]
-  (let [filtered-ch (subscription-chan board [:analog-msg analog-pin])]
+  (let [topic [:analog-msg analog-pin]
+        filtered-ch (subscription-chan board topic)]
     (on-channel-event-with-prev
      filtered-ch
      (fn [event prev]
        (when (< delta (Math/abs (- (:value prev Integer/MAX_VALUE) (:value event))))
-         (event-handler event)))))))
+         (event-handler event))))
+    (unsub-handler board filtered-ch topic))))
 
-(defn stop-receiver!
-  "Stops receiving events on a given receiver"
-  [receiver]
-  (a/close! (:source-channel receiver)))
