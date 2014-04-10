@@ -52,6 +52,26 @@ The above will set the brightness of an LED on pin 11 to maximum brightness
 
 #### Receiving Information
 
+The Firmata protocol provides several ways of receiving events from the board.  The first is via an event channel:
+
+	(let [ch (event-channel board)]
+	  ; ... 
+	  ; take events from the channel
+	  ; ...
+	  ; Then, when you're done, you should clean up:
+	  (release-event-channel board ch))
+	  
+The channels have the same buffer size as the board is configured with on `open-board`.
+
+The protocol also provides a `core.async` publisher, which publishes events based on `[:event-type :pin]`.  This can be used in the standard fashion:
+
+	(let [sub-ch (chan)]
+	  (sub (event-publisher board) [:digital-msg 3] sub-ch)
+	  (go (loop 
+	        (when-let [event (<! sub-ch)]
+	          ; ... do some stuff
+	          (recur)))))
+          
 To enable digital pin reporting:
 
     (-> board
@@ -60,10 +80,11 @@ To enable digital pin reporting:
 
 This will result in the following events on the channel:
 
-     (let [event (<!! (:channel board))]
-            (is (= :digital-msg (:type event)))
-            (is (= 3 (:pin event)))
-            (is (= :high (:value event)))
+     (let [ch (event-channel board)
+           event (<!! ch)]
+        (is (= :digital-msg (:type event)))
+        (is (= 3 (:pin event)))
+        (is (= :high (:value event)))
 
 For convenience, the `firmata.receiver` namspace provides the function `on-digital-event`, which may be used to filter events with the `:digital-msg` type and to a specific pin.  For example:
 
@@ -94,8 +115,7 @@ Board connections should be closed when complete:
 
     (close! board)
 
-The board's channel is closed as well.
-
+Any channels will be closed as well.
 
 ## License
 
