@@ -306,7 +306,7 @@
   [port-name & {:keys [baud-rate event-buffer-size]
                 :or {baud-rate 57600 event-buffer-size 1024}}]
 
-  (let [create-channel #(chan (a/dropping-buffer event-buffer-size))
+  (let [create-channel #(chan (a/sliding-buffer event-buffer-size))
         port (serial/open port-name :baud-rate baud-rate)
         read-ch (create-channel)
         mult-ch (a/mult read-ch)
