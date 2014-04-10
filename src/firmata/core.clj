@@ -99,6 +99,10 @@
    [board]
    "Returns a channel which provides all of the events that have been returned from the board.")
 
+  (release-event-channel
+   [this channel]
+   "Releases the channel")
+
   (event-publisher
    [board]
    "Returns a publisher which provides events by [:type :pin]")
@@ -301,10 +305,12 @@
   (default value 1024)."
   [port-name & {:keys [baud-rate event-buffer-size]
                 :or {baud-rate 57600 event-buffer-size 1024}}]
-  (let [port (serial/open port-name :baud-rate baud-rate)
-        read-ch (chan (a/sliding-buffer event-buffer-size))
+
+  (let [create-channel #(chan (a/dropping-buffer event-buffer-size))
+        port (serial/open port-name :baud-rate baud-rate)
+        read-ch (create-channel)
         mult-ch (a/mult read-ch)
-        pub-ch (chan (a/sliding-buffer event-buffer-size))
+        pub-ch (create-channel)
         publisher (a/pub pub-ch #(vector (:type %) (:pin %)))
         write-ch (chan 1)
         board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
@@ -395,9 +401,13 @@
 
       (event-channel
        [this]
-       (let [ec (chan)]
+       (let [ec (create-channel)]
          (a/tap mult-ch ec)
          ec))
+
+      (release-event-channel
+       [this channel]
+       (a/untap mult-ch channel))
 
       (event-publisher
        [this]

@@ -1,14 +1,8 @@
 (ns firmata.receiver
-  (:require [clojure.core.async :as a]))
+  (:require [firmata.core :refer :all]
+            [clojure.core.async :as a]))
 
 (defrecord EventReceiver [handler source-channel])
-
-(defn- mult-ch
-  [board]
-  (let [m (a/mult (:channel board))
-        m-ch (a/chan)]
-    (a/tap m m-ch)
-    m-ch))
 
 (defn- on-channel-event-with-prev
   [channel event-handler]
@@ -28,27 +22,25 @@
 (defn on-event
   "Add a general event receiver. `event-handler` takes should take one argument: event."
   [board event-handler]
-  (on-channel-event (mult-ch board) event-handler))
+  (on-channel-event (event-channel board) event-handler))
 
-
-(defn- filtered-chan
+(defn- subscription-chan
   [board target]
-  (let [filtered-ch (a/chan)
-        p (a/pub (mult-ch board) #(vector (:type %) (:pin %)))]
-    (a/sub p target filtered-ch)
+  (let [filtered-ch (a/chan)]
+    (a/sub (event-publisher board) target filtered-ch)
     filtered-ch))
 
 (defn on-digital-event
   "Creates a receiver for digital events on a given pin. `event-handler` takes should take one argument: event."
   [board digital-pin event-handler]
-  (let [filtered-ch (filtered-chan board [:digital-msg digital-pin])]
+  (let [filtered-ch (subscription-chan board [:digital-msg digital-pin])]
     (on-channel-event filtered-ch event-handler)))
 
 (defn on-analog-event
   "Create a receiver for analog events on a given pin. `event-handler` takes should take one argument: event."
   ([board analog-pin event-handler] (on-analog-event board analog-pin event-handler 5))
   ([board analog-pin event-handler delta]
-  (let [filtered-ch (filtered-chan board [:analog-msg analog-pin])]
+  (let [filtered-ch (subscription-chan board [:analog-msg analog-pin])]
     (on-channel-event-with-prev
      filtered-ch
      (fn [event prev]
@@ -59,4 +51,3 @@
   "Stops receiving events on a given receiver"
   [receiver]
   (a/close! (:source-channel receiver)))
-
