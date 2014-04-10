@@ -22,16 +22,14 @@ replacing `cu.usbmodemfa141` with the name of the appropriate serial port.
 
 Performing simple queries on the board will result in events placed onto the board's `core.async` event channel.
 
-For example, calling
+For example, calling will result in an event of type `:firmware-report` to be placed on the channel.  I.e. the following would be true:
 
-    (query-firmware board)
-
-will result in an event of type `:firmware-report` to be placed on the channel.  I.e. the following would be true:
-
-    (let [event (<!! (:channel board))]
-            (is (= :firmware-report (:type event)))
-            (is (= "2.3" (:version event)))
-            (is (= "Firmware Name" (:name event))))
+    (let [ch    (event-channel board)
+          _     (query-firmware board)
+          event (<!! ch)]
+      (is (= :firmware-report (:type event)))
+      (is (= "2.3" (:version event)))
+      (is (= "Firmware Name" (:name event))))
 
 #### Setting Pin Values
 
@@ -80,7 +78,7 @@ To enable digital pin reporting:
 
 This will result in the following events on the channel:
 
-     (let [ch (event-channel board)
+     (let [ch    (event-channel board)
            event (<!! ch)]
         (is (= :digital-msg (:type event)))
         (is (= 3 (:pin event)))
@@ -101,7 +99,8 @@ Similarly for analog in reporting (on `A0` in this example):
 
 will result in the following events on the channel:
 
-     (let [event (<!! (:channel board))]
+     (let [ch    (event-channel board)
+           event (<!! ch)]
           (is (= :analog-msg (:type event)))
           (is (= 0 (:pin event)))
           (is (= 1000 (:value event)))
