@@ -1,6 +1,6 @@
 (ns firmata.test.core
   (:require [clojure.test :refer :all]
-            [clojure.core.async :refer [go <!!]]
+            [clojure.core.async :refer [go <!! timeout]]
             [serial.core :as serial]
             [firmata.core :refer :all]
             )
@@ -24,17 +24,20 @@
     (ByteArrayInputStream. (.array buffer))))
 
 
-(def handler (atom nil))
 
 (deftest test-read-events
-  (with-redefs [serial/open (fn [name rate] :port)
+
+  (let [handler (atom nil)]
+
+  (with-redefs [serial/open (fn [name _ rate] {:port name :rate rate})
                 serial/listen (fn [port h skip?] (reset! handler h))]
 
-    (let [board (open-board "some_board")]
+    (let [board    (open-board "some_board")
+          evt-chan (event-channel board)]
 
       (testing "read protocol version"
         (@handler (create-in-stream 0xF9 2 3))
-        (if-let [event (<!! (:channel board))]
+        (if-let [event (<!! evt-chan)]
               (do
                 (is (= :protocol-version (:type event)))
                 (is (= "2.3" (:version event))))
@@ -44,7 +47,7 @@
 
       (testing "read firmware info"
         (@handler (create-in-stream 0xF0 0x79 2 3 "Firmware Name" 0xF7))
-        (if-let [event (<!! (:channel board))]
+        (if-let [event (<!! evt-chan)]
           (do
             (is (= :firmware-report (:type event)))
             (is (= "2.3" (:version event)))
@@ -59,7 +62,7 @@
                                     0x00 0x01 0x01 0x01 0x04 0x0e 0x7f
                                     0x00 0x01 0x01 0x01 0x03 0x08 0x04 0x0e 0x7f
                                     0xF7))
-        (if-let [event (<!! (:channel board))]
+        (if-let [event (<!! evt-chan)]
           (do
             (is (= :capabilities-report (:type event)))
             (is (= {0 {},
@@ -72,7 +75,7 @@
 
       (testing "empty capabilities"
         (@handler (create-in-stream 0xF0 0x6C 0xF7))
-        (if-let [event (<!! (:channel board))]
+        (if-let [event (<!! evt-chan)]
           (do
             (is (= :capabilities-report (:type event)))
             (is (= {} (:modes event))))
@@ -81,7 +84,7 @@
 
       (testing "read pin state"
         (@handler (create-in-stream 0xF0 0x6E 2 0 0x04 0xF7))
-        (if-let [event (<!! (:channel board))]
+        (if-let [event (<!! evt-chan)]
           (do
             (is (= :pin-state (:type event)))
             (is (= 2 (:pin event)))
@@ -91,7 +94,7 @@
 
       (testing "read pin state larger value"
         (@handler (create-in-stream 0xF0 0x6E 2 1 0x7f 0x1 0xF7))
-        (if-let [event (<!! (:channel board))]
+        (if-let [event (<!! evt-chan)]
           (do
             (is (= :pin-state (:type event)))
             (is (= 2 (:pin event)))
@@ -101,7 +104,7 @@
 
       (testing "read analog mappings"
         (@handler (create-in-stream 0xF0 0x6A 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0x7F 0 1 2 3 4 5 0xF7))
-        (if-let [event (<!! (:channel board))]
+        (if-let [event (<!! evt-chan)]
           (do
             (is (= :analog-mappings (:type event)))
             (is (= {0 14,
@@ -119,7 +122,7 @@
                                     0x68 0x7 ; data0
                                     0x01 0x0  ; data1
                                     0xF7))
-        (if-let [event (<!! (:channel board))]
+        (if-let [event (<!! evt-chan)]
           (do
             (is (= :i2c-reply (:type event)))
             (is (= 0x0A (:slave-address event)))
@@ -129,7 +132,7 @@
 
       (testing "read digital message"
         (@handler (create-in-stream 0x90 1 0))
-        (if-let [event (<!! (:channel board))]
+        (if-let [event (<!! evt-chan)]
           (do
             (is (= :digital-msg (:type event)))
             (is (= 0 (:port event)))
@@ -139,7 +142,7 @@
 
       (testing "read digital message: low boundary"
         (@handler (create-in-stream 0x90 0 0))
-        (if-let [event (<!! (:channel board))]
+        (if-let [event (<!! evt-chan)]
           (do
             (is (= :digital-msg (:type event)))
             (is (= 0 (:pin event)))
@@ -148,7 +151,7 @@
 
       (testing "read digital message: high boundary"
         (@handler (create-in-stream 0x9F 0x00 0x01))
-        (if-let [event (<!! (:channel board))]
+        (if-let [event (<!! evt-chan)]
           (do
             (is (= :digital-msg (:type event)))
             (is (= 127 (:pin event)))
@@ -157,7 +160,7 @@
 
       (testing "read analog message"
         (@handler (create-in-stream 0xE5 0x68 7))
-        (if-let [event (<!! (:channel board))]
+        (if-let [event (<!! evt-chan)]
           (do
             (is (= :analog-msg (:type event)))
             (is (= 5 (:pin event)))
@@ -166,7 +169,7 @@
 
       (testing "read unknown message"
         (@handler (create-in-stream 0x01))
-        (if-let [event (<!! (:channel board))]
+        (if-let [event (<!! evt-chan)]
           (do
             (is (= :unknown-msg (:type event)))
             (is (= 0x01 (:value event))))
@@ -174,37 +177,39 @@
 
       (testing "read unknown SysEx"
         (@handler (create-in-stream 0xF0 0x01 0x68 0xF7))
-        (if-let [event (<!! (:channel board))]
+        (if-let [event (<!! evt-chan)]
           (do
             (is (= :unknown-sysex (:type event)))
             (is (= [0x68] (:value event))))
           (is (= "Expected event" "but was no event"))))
 
-    )))
-
-(def write-value (atom nil))
+    ))))
 
 (deftest test-write
-  (with-redefs [serial/open (fn [name rate] :port)
+  (let [write-value (atom nil)]
+  (with-redefs [serial/open (fn [name _ rate] :port)
                 serial/listen (fn [port h skip?] nil)
                 serial/write (fn [port x] (reset! write-value x) nil)]
     (let [board (open-board "writable_board")]
 
       (testing "query protocol version"
         (query-version board)
-
+        (<!! (timeout 10))
         (is (= 0xF9 @write-value)))
 
       (testing "query firmware"
         (query-firmware board)
+        (<!! (timeout 10))
         (is (= [0xF0 0x79 0xF7] @write-value)))
 
       (testing "query capabilities"
         (query-capabilities board)
+        (<!! (timeout 10))
         (is (= [0xF0 0x6B 0xF7] @write-value)))
 
       (testing "pin state query"
         (query-pin-state board 0)
+        (<!! (timeout 10))
         (is (= [0xF0 0x6D 0 0xF7] @write-value))
 
         (is (thrown? AssertionError (query-pin-state board "foo")))
@@ -213,23 +218,28 @@
 
       (testing "query analog mappings"
         (query-analog-mappings board)
-
+        (<!! (timeout 10))
         (is (= [0xF0 0x69 0xF7] @write-value)))
 
       (testing "set pin mode"
         (set-pin-mode board 4 :input)
+        (<!! (timeout 10))
         (is (= [0xF4 4 0] @write-value))
 
         (set-pin-mode board 3 :output)
+        (<!! (timeout 10))
         (is (= [0xF4 3 1] @write-value))
 
         (set-pin-mode board 16 :analog)
+        (<!! (timeout 10))
         (is (= [0xF4 16 2] @write-value))
 
         (set-pin-mode board 13 :pwm)
+        (<!! (timeout 10))
         (is (= [0xF4 13 3] @write-value))
 
         (set-pin-mode board 28 :servo)
+        (<!! (timeout 10))
         (is (= [0xF4 28 4] @write-value))
 
         (is (thrown? AssertionError (set-pin-mode board 1 :foo)))
@@ -239,9 +249,11 @@
 
       (testing "toggle analog in"
         (enable-analog-in-reporting board 1 true)
+        (<!! (timeout 10))
         (is (= [0xC1 1] @write-value))
 
         (enable-analog-in-reporting board 2 false)
+        (<!! (timeout 10))
         (is (= [0xC2 0] @write-value))
 
         (is (thrown? AssertionError (enable-analog-in-reporting board -1 true)))
@@ -249,9 +261,11 @@
 
       (testing "toggle digital port reporting"
         (enable-digital-port-reporting board 1 true)
+        (<!! (timeout 10))
         (is (= [0xD0 1] @write-value))
 
         (enable-digital-port-reporting board 15 false)
+        (<!! (timeout 10))
         (is (= [0xD1 0] @write-value))
 
         (is (thrown? AssertionError (enable-digital-port-reporting board -1 true)))
@@ -259,12 +273,15 @@
 
       (testing "set digital value"
         (set-digital board 1 :high)
+        (<!! (timeout 10))
         (is (= [0x90 0x2 0x0] @write-value))
 
         (set-digital board 0 :high)
+        (<!! (timeout 10))
         (is (= [0x90 0x3 0x0] @write-value))
 
         (set-digital board 15 :low)
+        (<!! (timeout 10))
         (is (= [0x91 0x0 0x0] @write-value))
 
         (is (thrown? AssertionError (set-digital board 1 :foo)))
@@ -276,6 +293,7 @@
         (is (= [0xE4 0x68 0x7] @write-value))
 
         (set-analog board 16 1000)
+        (<!! (timeout 10))
         (is (= [0xF0 0x6F 16 0x68 0x7 0xF7] @write-value))
 
         (is (thrown? AssertionError (set-analog board -1 1000)))
@@ -283,51 +301,56 @@
 
       (testing "set sampling interval"
         (set-sampling-interval board 1000)
+        (<!! (timeout 10))
         (is (= [0xF0 0x7A 0x68 0x7 0xF7] @write-value)))
-
-      (testing "set sampling interval: default"
-        (set-sampling-interval board)
-        (is (= [0xF0 0x7A 0x13 0x0 0xF7] @write-value)))
-
-    )))
+    ))))
 
 (deftest test-i2c-messages
   (let [writes (atom [])]
-    (with-redefs [serial/open (fn [name rate] :port)
+    (with-redefs [serial/open (fn [name _ rate] :port)
                   serial/listen (fn [port h skip?] nil)
                   serial/write (fn [port x] (swap! writes conj x) nil)]
       (let [board (open-board "writable_board")]
 
         (testing "ic2 request: write"
           (send-i2c-request board 6 :write 0xF 0xE 0xD)
-          (is (= [[0xF0 0x76 6 0]
-                  [0xF 0x0 0xE 0 0xD 0x0]
-                  0xF7] @writes)))
-
+          (<!! (timeout 10))
+          (is (= [[0xF0 0x76 6 0 0xF 0x0 0xE 0 0xD 0x0 0xF7]] @writes)))
 
         (reset! writes [])
 
         (testing "ic2 request: read-once"
           (send-i2c-request board 6 :read-once 1000)
-          (is (= [[0xF0 0x76 6 2r0000100] [0x68 0x7] 0xF7] @writes)))
+          (<!! (timeout 10))
+          (is (= [[0xF0 0x76 6 2r0000100 0x68 0x7 0xF7]] @writes)))
 
         (reset! writes [])
 
         (testing "ic2 request: read-continuously"
           (send-i2c-request board 7 :read-continuously)
-          (is (= [[0xF0 0x76 7 2r1000] 0xF7 ] @writes)))
+          (<!! (timeout 10))
+          (is (= [[0xF0 0x76 7 2r1000 0xF7]] @writes)))
 
         (reset! writes [])
 
         (testing "ic2 request: stop-reading"
           (send-i2c-request board 7 :stop-reading)
-          (is (= [[0xF0 0x76 7 2r1100] 0xF7 ] @writes)))
+          (<!! (timeout 10))
+          (is (= [[0xF0 0x76 7 2r1100 0xF7]] @writes)))
 
         (reset! writes [])
 
         (testing "ic2 config: delay"
           (send-i2c-config board 1000)
+          (<!! (timeout 10))
           (is (= [[0xF0 0x78 0x68 0x7 0xF7]] @writes)))
+
+        (reset! writes [])
+
+        (testing "ic2 config: delay and user data"
+          (send-i2c-config board 1000 0x10)
+          (<!! (timeout 10))
+          (is (= [[0xF0 0x78 0x68 0x7 0x10 0xF7]] @writes)))
 
         (reset! writes [])
 
@@ -336,15 +359,11 @@
 
 (deftest test-board-close
   (let [port (atom nil)]
-    (with-redefs [serial/open (fn [name rate] :port)
+    (with-redefs [serial/open (fn [name _ rate] :port)
                   serial/listen (fn [port h skip?] nil)
                   serial/close (fn [p] (reset! port p) nil)]
       (let [board (open-board "writable_board")]
 
-        (close board)
+        (close! board)
 
         (is (= :port @port))))))
-
-
-(run-tests)
-
