@@ -35,6 +35,13 @@
     (let [board    (open-board "some_board")
           evt-chan (event-channel board)]
 
+      (testing "board version initialized without board handshake messages"
+        (is (= {:type :protocol-version :version "Unknown"} (version board)))
+        )
+
+      (testing "board firmware initialized without board handshake messages"
+        (is (= {:type :firmware-report :name "Unknown" :version "Unknown"} (firmware board))))
+
       (testing "read protocol version"
         (@handler (create-in-stream 0xF9 2 3))
         (if-let [event (<!! evt-chan)]

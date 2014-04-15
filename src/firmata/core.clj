@@ -1,5 +1,5 @@
 (ns firmata.core
-  (:require [clojure.core.async :as a :refer [go chan >! >!! <!]]
+  (:require [clojure.core.async :as a :refer [go chan >! >!! <! alts!! <!!]]
             [serial.core :as serial]))
 
 ; Message Types
@@ -100,12 +100,20 @@
    "Returns a channel which provides all of the events that have been returned from the board.")
 
   (release-event-channel
-   [this channel]
+   [board channel]
    "Releases the channel")
 
   (event-publisher
    [board]
    "Returns a publisher which provides events by [:type :pin]")
+
+  (version
+   [board]
+   "Returns the currently known version of the board")
+
+  (firmware
+   [board]
+   "Returns the currently known firmware information")
 
   )
 
@@ -298,6 +306,11 @@
   [board report-type address enabled?]
   (send-message board [(pin-command report-type address) (if enabled? 1 0)]))
 
+(defn take-with-timeout
+  [ch default]
+  (first (alts!! [ch (a/timeout 5000)]
+                 :default default)))
+
 (defn open-board
   "Opens a connection to a board on at a given port name.
   The baud rate may be set with the option :baud-rate (default value 57600).
@@ -317,6 +330,10 @@
                            :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})]
     (serial/listen port (firmata-handler {:state board-state :channel read-ch}) false)
 
+    (swap! board-state assoc :board-version (take-with-timeout read-ch {:type :protocol-version :version "Unknown"}))
+
+    (swap! board-state assoc :board-firmware (take-with-timeout read-ch {:type :firmware-report :name "Unknown" :version "Unknown"}))
+
     (a/tap mult-ch pub-ch)
 
     (go (loop []
@@ -330,6 +347,14 @@
        (a/close! write-ch)
        (a/close! read-ch)
        (serial/close port))
+
+      (version
+       [this]
+       (:board-version @board-state))
+
+      (firmware
+       [this]
+       (:board-firmware @board-state))
 
       (query-firmware
        [this]
