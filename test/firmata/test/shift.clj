@@ -15,17 +15,31 @@
 
         (shift-out :mock-board latch-pin data-pin clock-pin :lsb-first 0x1)
 
-        (is (= @writes [{:pin data-pin :value :high}
-                        {:pin data-pin :value :low}
-                        {:pin data-pin :value :low}
-                        {:pin data-pin :value :low}
-                        {:pin data-pin :value :low}
-                        {:pin data-pin :value :low}
-                        {:pin data-pin :value :low}
+        (is (= @writes [{:pin latch-pin :value :high}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
                         {:pin data-pin :value :low}
                         {:pin clock-pin :value :high}
                         {:pin clock-pin :value :low}
-                        {:pin latch-pin :value :high}
+                        {:pin data-pin :value :low}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :low}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :low}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :low}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :low}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :low}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
                         {:pin latch-pin :value :low}])))
 
       (reset! writes [])
@@ -34,17 +48,31 @@
 
         (shift-out :mock-board latch-pin data-pin clock-pin :lsb-first 0xFF)
 
-        (is (= @writes [{:pin data-pin :value :high}
-                        {:pin data-pin :value :high}
-                        {:pin data-pin :value :high}
-                        {:pin data-pin :value :high}
-                        {:pin data-pin :value :high}
-                        {:pin data-pin :value :high}
-                        {:pin data-pin :value :high}
+        (is (= @writes [{:pin latch-pin :value :high}
                         {:pin data-pin :value :high}
                         {:pin clock-pin :value :high}
                         {:pin clock-pin :value :low}
-                        {:pin latch-pin :value :high}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
                         {:pin latch-pin :value :low}])))
 
       (reset! writes [])
@@ -53,17 +81,31 @@
 
         (shift-out :mock-board latch-pin data-pin clock-pin :msb-first 0x1)
 
-        (is (= @writes [{:pin data-pin :value :low}
+        (is (= @writes [{:pin latch-pin :value :high}
                         {:pin data-pin :value :low}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
                         {:pin data-pin :value :low}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
                         {:pin data-pin :value :low}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
                         {:pin data-pin :value :low}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
                         {:pin data-pin :value :low}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
                         {:pin data-pin :value :low}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :low}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
                         {:pin data-pin :value :high}
                         {:pin clock-pin :value :high}
                         {:pin clock-pin :value :low}
-                        {:pin latch-pin :value :high}
                         {:pin latch-pin :value :low}])))
 
       (reset! writes [])
@@ -72,24 +114,36 @@
 
         (shift-out :mock-board latch-pin data-pin clock-pin :msb-first 0xFF)
 
-        (is (= @writes [{:pin data-pin :value :high}
-                        {:pin data-pin :value :high}
-                        {:pin data-pin :value :high}
-                        {:pin data-pin :value :high}
-                        {:pin data-pin :value :high}
-                        {:pin data-pin :value :high}
-                        {:pin data-pin :value :high}
+        (is (= @writes [{:pin latch-pin :value :high}
                         {:pin data-pin :value :high}
                         {:pin clock-pin :value :high}
                         {:pin clock-pin :value :low}
-                        {:pin latch-pin :value :high}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
+                        {:pin data-pin :value :high}
+                        {:pin clock-pin :value :high}
+                        {:pin clock-pin :value :low}
                         {:pin latch-pin :value :low}])))
 
       (testing "bad endian-ness"
         (is (thrown? AssertionError (shift-out :mock-board latch-pin data-pin clock-pin :whatever 0xFF))))
 
-      ))
+      )))
 
-
-
-  )
+(run-tests)
