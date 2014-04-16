@@ -1,5 +1,5 @@
 (ns firmata.core
-  (:require [clojure.core.async :as a :refer [go chan >! >!! <!]]
+  (:require [clojure.core.async :as a :refer [go chan >! >!! <! alts!! <!!]]
             [serial.core :as serial]))
 
 ; Message Types
@@ -13,7 +13,7 @@
 (def ^{:private true} SET_PIN_IO_MODE     0xF4)
 (def ^{:private true} SYSEX_END           0xF7)
 (def ^{:private true} PROTOCOL_VERSION    0xF9)
-(def ^{:private true} SYSEX_RESET         0xFF)
+(def ^{:private true} SYSTEM_RESET        0xFF)
 
 ; SysEx Commands
 
@@ -48,6 +48,8 @@
 
 (defprotocol Firmata
   (close! [board] "Closes the connection to the board.")
+
+  (reset-board! [board] "Sends the reset signal to the board")
 
   ; Various queries
   (query-firmware [board] "Query the firmware of the board.")
@@ -100,12 +102,20 @@
    "Returns a channel which provides all of the events that have been returned from the board.")
 
   (release-event-channel
-   [this channel]
+   [board channel]
    "Releases the channel")
 
   (event-publisher
    [board]
    "Returns a publisher which provides events by [:type :pin]")
+
+  (version
+   [board]
+   "Returns the currently known version of the board")
+
+  (firmware
+   [board]
+   "Returns the currently known firmware information")
 
   )
 
@@ -298,6 +308,10 @@
   [board report-type address enabled?]
   (send-message board [(pin-command report-type address) (if enabled? 1 0)]))
 
+(defn- take-with-timeout
+  [ch default]
+  (or (first (alts!! [ch (a/timeout 5000)])) default))
+
 (defn open-board
   "Opens a connection to a board on at a given port name.
   The baud rate may be set with the option :baud-rate (default value 57600).
@@ -306,16 +320,25 @@
   [port-name & {:keys [baud-rate event-buffer-size]
                 :or {baud-rate 57600 event-buffer-size 1024}}]
 
-  (let [create-channel #(chan (a/sliding-buffer event-buffer-size))
-        port (serial/open port-name :baud-rate baud-rate)
+  (let [board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
+                           :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})
+
+        create-channel #(chan (a/sliding-buffer event-buffer-size))
         read-ch (create-channel)
+        write-ch (chan 1)
+
+        ; Open the serial port and attach ourselves to it
+        port (serial/open port-name :baud-rate baud-rate)
+        _ (serial/listen port (firmata-handler {:state board-state :channel read-ch}) false)
+
+        ; Need to pull these values before wiring up the remaining channels, otherwise, they get lost
+        _ (swap! board-state assoc :board-version (take-with-timeout read-ch {:type :protocol-version :version "Unknown"}))
+        _ (swap! board-state assoc :board-firmware (take-with-timeout read-ch {:type :firmware-report :name "Unknown" :version "Unknown"}))
+
+        ; For sending events to various receivers
         mult-ch (a/mult read-ch)
         pub-ch (create-channel)
-        publisher (a/pub pub-ch #(vector (:type %) (:pin %)))
-        write-ch (chan 1)
-        board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
-                           :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})]
-    (serial/listen port (firmata-handler {:state board-state :channel read-ch}) false)
+        publisher (a/pub pub-ch #(vector (:type %) (:pin %)))]
 
     (a/tap mult-ch pub-ch)
 
@@ -330,6 +353,18 @@
        (a/close! write-ch)
        (a/close! read-ch)
        (serial/close port))
+
+      (reset-board!
+        [this]
+        (send-message this SYSTEM_RESET))
+
+      (version
+       [this]
+       (-> @board-state :board-version :version))
+
+      (firmware
+       [this]
+        (dissoc (:board-firmware @board-state) :type))
 
       (query-firmware
        [this]

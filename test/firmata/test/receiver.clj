@@ -10,8 +10,8 @@
   (chan (a/sliding-buffer 1)))
 
 (defn- send-msg [ch msg]
-  (is (a/alts!! [[ch msg]
-             (timeout 100)])))
+  (is (first(a/alts!! [[ch msg]
+             (timeout 100)]))))
 
 (defn- mock-board [read-ch]
   (let [mult-ch (a/mult read-ch)
