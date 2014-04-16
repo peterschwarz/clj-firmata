@@ -23,24 +23,29 @@
     (reduce (fn [^ByteBuffer b ^bytes value] (.put b (to-bytes value))) buffer more)
     (ByteArrayInputStream. (.array buffer))))
 
-
+(defn mock-serial-listen
+  [handler]
+  (fn [_ h _]
+   (reset! handler h)
+   (h (create-in-stream 0xF9 9 9))
+   (h (create-in-stream 0xF0 0x79 9 9 "Test Firmware" 0xF7))
+   nil))
 
 (deftest test-read-events
 
   (let [handler (atom nil)]
 
   (with-redefs [serial/open (fn [name _ rate] {:port name :rate rate})
-                serial/listen (fn [port h skip?] (reset! handler h))]
+                serial/listen (mock-serial-listen handler)]
 
     (let [board    (open-board "some_board")
           evt-chan (event-channel board)]
 
-      (testing "board version initialized without board handshake messages"
-        (is (= {:type :protocol-version :version "Unknown"} (version board)))
-        )
+      (testing "board version initialized with board handshake messages"
+        (is (= "9.9" (version board))))
 
-      (testing "board firmware initialized without board handshake messages"
-        (is (= {:type :firmware-report :name "Unknown" :version "Unknown"} (firmware board))))
+      (testing "board firmware initialized with board handshake messages"
+        (is (= {:name "Test Firmware" :version "9.9"} (firmware board))))
 
       (testing "read protocol version"
         (@handler (create-in-stream 0xF9 2 3))
@@ -194,9 +199,9 @@
 
 (deftest test-write
   (let [write-value (atom nil)]
-  (with-redefs [serial/open (fn [name _ rate] :port)
-                serial/listen (fn [port h skip?] nil)
-                serial/write (fn [port x] (reset! write-value x) nil)]
+  (with-redefs [serial/open (fn [_ _ _] :port)
+                serial/listen (mock-serial-listen (atom nil))
+                serial/write (fn [_ x] (reset! write-value x) nil)]
     (let [board (open-board "writable_board")]
 
       (testing "query protocol version"
@@ -314,9 +319,9 @@
 
 (deftest test-i2c-messages
   (let [writes (atom [])]
-    (with-redefs [serial/open (fn [name _ rate] :port)
-                  serial/listen (fn [port h skip?] nil)
-                  serial/write (fn [port x] (swap! writes conj x) nil)]
+    (with-redefs [serial/open (fn [_ _ _] :port)
+                  serial/listen (mock-serial-listen (atom nil))
+                  serial/write (fn [_ x] (swap! writes conj x) nil)]
       (let [board (open-board "writable_board")]
 
         (testing "ic2 request: write"
@@ -366,8 +371,8 @@
 
 (deftest test-board-close
   (let [port (atom nil)]
-    (with-redefs [serial/open (fn [name _ rate] :port)
-                  serial/listen (fn [port h skip?] nil)
+    (with-redefs [serial/open (fn [_ _ _] :port)
+                  serial/listen (mock-serial-listen (atom nil))
                   serial/close (fn [p] (reset! port p) nil)]
       (let [board (open-board "writable_board")]
 

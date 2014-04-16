@@ -308,7 +308,7 @@
 
 (defn- take-with-timeout
   [ch default]
-  (or (first (alts!! [ch (a/timeout 2500)])) default))
+  (or (first (alts!! [ch (a/timeout 5000)])) default))
 
 (defn open-board
   "Opens a connection to a board on at a given port name.
@@ -318,20 +318,25 @@
   [port-name & {:keys [baud-rate event-buffer-size]
                 :or {baud-rate 57600 event-buffer-size 1024}}]
 
-  (let [create-channel #(chan (a/sliding-buffer event-buffer-size))
-        port (serial/open port-name :baud-rate baud-rate)
+  (let [board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
+                           :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})
+
+        create-channel #(chan (a/sliding-buffer event-buffer-size))
         read-ch (create-channel)
+        write-ch (chan 1)
+
+        ; Open the serial port and attach ourselves to it
+        port (serial/open port-name :baud-rate baud-rate)
+        _ (serial/listen port (firmata-handler {:state board-state :channel read-ch}) false)
+
+        ; Need to pull these values before wiring up the remaining channels, otherwise, they get lost
+        _ (swap! board-state assoc :board-version (take-with-timeout read-ch {:type :protocol-version :version "Unknown"}))
+        _ (swap! board-state assoc :board-firmware (take-with-timeout read-ch {:type :firmware-report :name "Unknown" :version "Unknown"}))
+
+        ; For sending events to various receivers
         mult-ch (a/mult read-ch)
         pub-ch (create-channel)
-        publisher (a/pub pub-ch #(vector (:type %) (:pin %)))
-        write-ch (chan 1)
-        board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
-                           :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})]
-    (serial/listen port (firmata-handler {:state board-state :channel read-ch}) false)
-
-    (swap! board-state assoc :board-version (take-with-timeout read-ch {:type :protocol-version :version "Unknown"}))
-
-    (swap! board-state assoc :board-firmware (take-with-timeout read-ch {:type :firmware-report :name "Unknown" :version "Unknown"}))
+        publisher (a/pub pub-ch #(vector (:type %) (:pin %)))]
 
     (a/tap mult-ch pub-ch)
 
@@ -349,11 +354,11 @@
 
       (version
        [this]
-       (:board-version @board-state))
+       (-> @board-state :board-version :version))
 
       (firmware
        [this]
-       (:board-firmware @board-state))
+        (dissoc (:board-firmware @board-state) :type))
 
       (query-firmware
        [this]
