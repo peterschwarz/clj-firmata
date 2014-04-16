@@ -8,7 +8,7 @@
 
 Add the following to your `project.clj`
 
-	[clj-firmata 1.0.0]
+	[clj-firmata 1.1.0]
 
 ### Connect to a Board
 
@@ -53,23 +53,23 @@ The above will set the brightness of an LED on pin 11 to maximum brightness
 The Firmata protocol provides several ways of receiving events from the board.  The first is via an event channel:
 
 	(let [ch (event-channel board)]
-	  ; ... 
+	  ; ...
 	  ; take events from the channel
 	  ; ...
 	  ; Then, when you're done, you should clean up:
 	  (release-event-channel board ch))
-	  
+
 The channels have the same buffer size as the board is configured with on `open-board`.
 
 The protocol also provides a `core.async` publisher, which publishes events based on `[:event-type :pin]`.  This can be used in the standard fashion:
 
 	(let [sub-ch (chan)]
 	  (sub (event-publisher board) [:digital-msg 3] sub-ch)
-	  (go (loop 
+	  (go (loop
 	        (when-let [event (<! sub-ch)]
 	          ; ... do some stuff
 	          (recur)))))
-          
+
 To enable digital pin reporting:
 
     (-> board
@@ -86,7 +86,7 @@ This will result in the following events on the channel:
 
 For convenience, the `firmata.receiver` namspace provides the function `on-digital-event`, which may be used to filter events with the `:digital-msg` type and to a specific pin.  For example:
 
-    (def receiver (on-digital-event board 3 
+    (def receiver (on-digital-event board 3
       #(if (= :high (:value %)) "Pressed" "Released")))
 
 This receiver can be stopped like so:
@@ -105,7 +105,7 @@ will result in the following events on the channel:
           (is (= 0 (:pin event)))
           (is (= 1000 (:value event)))
 
-Like `on-digital-event`, there is an `on-analog-event` which will provide the events to a particular analog pin.  
+Like `on-digital-event`, there is an `on-analog-event` which will provide the events to a particular analog pin.
 
 
 ### Close the connection to a Board
