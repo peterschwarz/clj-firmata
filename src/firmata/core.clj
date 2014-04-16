@@ -306,10 +306,9 @@
   [board report-type address enabled?]
   (send-message board [(pin-command report-type address) (if enabled? 1 0)]))
 
-(defn take-with-timeout
+(defn- take-with-timeout
   [ch default]
-  (first (alts!! [ch (a/timeout 5000)]
-                 :default default)))
+  (or (first (alts!! [ch (a/timeout 2500)])) default))
 
 (defn open-board
   "Opens a connection to a board on at a given port name.
