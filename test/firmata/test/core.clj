@@ -204,6 +204,11 @@
                 serial/write (fn [_ x] (reset! write-value x) nil)]
     (let [board (open-board "writable_board")]
 
+      (testing "reset board"
+        (reset-board! board)
+        (<!! (timeout 10))
+        (is (= 0xFF @write-value)))
+
       (testing "query protocol version"
         (query-version board)
         (<!! (timeout 10))

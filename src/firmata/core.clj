@@ -13,7 +13,7 @@
 (def ^{:private true} SET_PIN_IO_MODE     0xF4)
 (def ^{:private true} SYSEX_END           0xF7)
 (def ^{:private true} PROTOCOL_VERSION    0xF9)
-(def ^{:private true} SYSEX_RESET         0xFF)
+(def ^{:private true} SYSTEM_RESET        0xFF)
 
 ; SysEx Commands
 
@@ -48,6 +48,8 @@
 
 (defprotocol Firmata
   (close! [board] "Closes the connection to the board.")
+
+  (reset-board! [board] "Sends the reset signal to the board")
 
   ; Various queries
   (query-firmware [board] "Query the firmware of the board.")
@@ -351,6 +353,10 @@
        (a/close! write-ch)
        (a/close! read-ch)
        (serial/close port))
+
+      (reset-board!
+        [this]
+        (send-message this SYSTEM_RESET))
 
       (version
        [this]
