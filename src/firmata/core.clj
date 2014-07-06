@@ -242,6 +242,12 @@
     {:type :analog-mappings
      :mappings mappings}))
 
+(defmethod read-sysex-event STRING_DATA
+  [in]
+  (let [data (consume-sysex in "" #(str %1 (char %2)))]
+    {:type :string-data
+     :data data}))
+
 (defmethod read-sysex-event :default
   [in]
   (let [values (consume-sysex in '[] #(conj %1 %2))]

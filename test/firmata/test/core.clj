@@ -131,6 +131,14 @@
                     5 19} (:mappings event))))
           (is (= "Expected event" "but was no event"))))
 
+      (testing "read string data"
+        (@handler (create-in-stream 0xF0 0x71 "Hello World" 0xF7))
+        (if-let [event (<!! evt-chan)]
+          (do
+            (is (= :string-data (:type event)))
+            (is (= "Hello World" (:data event))))
+          (is (= "Expected event" "but was no event"))))
+
       (testing "read i2c-reply"
         (@handler (create-in-stream 0xF0 0x77
                                     0xA 0x0 ; slave address
