@@ -178,7 +178,17 @@
   [in]
   (str (.read in) "." (.read in)))
 
-(defmulti ^{:private true} read-sysex-event
+(defmulti read-sysex-event
+  "Reads a sysex message.  
+
+   Returns a map with, at a minimum, the key :type.  This should 
+   indicates what sort of sysex message is being received.
+
+   For example, the result of a REPORT_FIRMWARE message is
+   
+       { :type :firmaware-report
+         :version \"2.3\"
+         :name \"StandardFirmata\" }"
   (fn [in] (.read in)))
 
 (defmethod read-sysex-event REPORT_FIRMWARE
@@ -241,6 +251,12 @@
   (let [mappings (read-analog-mappings in)]
     {:type :analog-mappings
      :mappings mappings}))
+
+(defmethod read-sysex-event STRING_DATA
+  [in]
+  (let [data (consume-sysex in "" #(str %1 (char %2)))]
+    {:type :string-data
+     :data data}))
 
 (defmethod read-sysex-event :default
   [in]
@@ -447,6 +463,11 @@
       (event-publisher
        [this]
        publisher)
+
+
+      Object 
+      
+      (toString [this] (format "(#Firmata :port-name \"%s\")" port-name))
 
       )))
 

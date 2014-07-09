@@ -11,3 +11,6 @@ pom.xml.asc
 # Intellij
 .idea
 *.iml
+
+# Sublime Text
+*.sublime-*
