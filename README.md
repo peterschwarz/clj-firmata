@@ -8,7 +8,7 @@
 
 Add the following to your `project.clj`
 
-	[clj-firmata 1.1.0]
+	[clj-firmata 1.1.1]
 
 ### Connect to a Board
 
