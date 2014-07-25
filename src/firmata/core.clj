@@ -338,10 +338,11 @@
   (default value 1024)."
   [port-name & {:keys [baud-rate event-buffer-size]
                 :or {baud-rate 57600 event-buffer-size 1024}}]
-  (create-board (SerialStream. port-name baud-rate) event-buffer-size))
+  (create-board (SerialStream. port-name baud-rate) :event-buffer-size event-buffer-size))
 
-(defn- create-board
-  [stream event-buffer-size]
+(defn create-board
+  [stream & {:keys [event-buffer-size]
+                :or {event-buffer-size 1024}}]
   (let [board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
                            :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})
 

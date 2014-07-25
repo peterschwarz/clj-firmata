@@ -1,5 +1,7 @@
 (ns firmata.stream
-  (:require [serial.core :as serial]))
+  (:require [serial.core :as serial]
+            [clojure.core.async :as a :refer [go <!! timeout]])
+  (:import [java.net InetSocketAddress Socket]))
 
 (defprotocol FirmataStream
 
@@ -29,3 +31,28 @@
   (listen [this handler]
     (when-let [serial-port (:serial-port this)]
       (serial/listen serial-port handler false))))
+
+
+(defrecord SocketStream [host port]
+  FirmataStream
+
+  (open! [this] 
+    (let [addr (InetSocketAddress. (:host this) (:port this))
+          socket (Socket.)]
+      (.connect socket addr)
+      (assoc this :socket socket)))
+
+  (close! [this]
+    (.close (:socket this))
+    (dissoc this :socket))
+
+  (write [this data]
+    ; TODO: This relies on the fact that we're using clj-serial, 
+    ; so we can use serial/to-bytes here
+    (let [socket (:socket this)
+          output-stream (.getOutputStream socket)]
+      (.write output-stream (serial/to-bytes data))
+      (.flush output-stream)))
+
+  (listen [this handler] 
+    (go (handler (.getInputStream (:socket this))))))
