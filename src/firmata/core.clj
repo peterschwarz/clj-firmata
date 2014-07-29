@@ -148,7 +148,7 @@
       (recur (.read in)
              (accumulator result current-value)))))
 
-(defn- consume-sysex
+(defn consume-sysex
   "Consumes bytes until the end of a SysEx response."
   [in initial accumulator]
   (consume-until SYSEX_END in initial accumulator))
@@ -216,7 +216,7 @@
      :value value})
   )
 
-(defn- read-two-byte-data
+(defn read-two-byte-data
   [in]
   (loop [result []
          current-byte (.read in)]
