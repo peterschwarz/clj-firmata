@@ -59,4 +59,6 @@
     (go
       (let [socket (:socket this)]
         (while (.isConnected socket)
-          (handler (.getInputStream socket)))))))
+          (try 
+            (handler (.getInputStream socket))
+            (catch java.net.SocketException se)))))))
