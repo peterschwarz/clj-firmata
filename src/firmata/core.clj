@@ -1,6 +1,7 @@
 (ns firmata.core
   (:require [clojure.core.async :as a :refer [go chan >! >!! <! alts!! <!!]]
-            [serial.core :as serial]))
+            [firmata.stream :as st])
+  (:import [firmata.stream SerialStream]))
 
 ; Message Types
 
@@ -328,6 +329,8 @@
   [ch default]
   (or (first (alts!! [ch (a/timeout 5000)])) default))
 
+(declare create-board)
+
 (defn open-board
   "Opens a connection to a board on at a given port name.
   The baud rate may be set with the option :baud-rate (default value 57600).
@@ -335,7 +338,11 @@
   (default value 1024)."
   [port-name & {:keys [baud-rate event-buffer-size]
                 :or {baud-rate 57600 event-buffer-size 1024}}]
+  (create-board (SerialStream. port-name baud-rate) :event-buffer-size event-buffer-size))
 
+(defn create-board
+  [stream & {:keys [event-buffer-size]
+                :or {event-buffer-size 1024}}]
   (let [board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
                            :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})
 
@@ -343,9 +350,9 @@
         read-ch (create-channel)
         write-ch (chan 1)
 
-        ; Open the serial port and attach ourselves to it
-        port (serial/open port-name :baud-rate baud-rate)
-        _ (serial/listen port (firmata-handler {:state board-state :channel read-ch}) false)
+        ; Open the stream and attach ourselves to it
+        port (st/open! stream)
+        _ (st/listen port (firmata-handler {:state board-state :channel read-ch}))
 
         ; Need to pull these values before wiring up the remaining channels, otherwise, they get lost
         _ (swap! board-state assoc :board-version (take-with-timeout read-ch {:type :protocol-version :version "Unknown"}))
@@ -360,7 +367,7 @@
 
     (go (loop []
           (when-let [data (<! write-ch)]
-            (serial/write port data)
+            (st/write port data)
             (recur))))
 
     (reify Firmata
@@ -368,7 +375,8 @@
        [this]
        (a/close! write-ch)
        (a/close! read-ch)
-       (serial/close port))
+       (st/close! port)
+       nil)
 
       (reset-board!
         [this]
@@ -462,14 +470,7 @@
 
       (event-publisher
        [this]
-       publisher)
-
-
-      Object 
-      
-      (toString [this] (format "(#Firmata :port-name \"%s\")" port-name))
-
-      )))
+       publisher))))
 
 (defn send-i2c-request
  "Sends an I2C read/write request with optional extended data."
