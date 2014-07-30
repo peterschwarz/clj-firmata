@@ -39,6 +39,7 @@
   (open! [this] 
     (let [addr (InetSocketAddress. (:host this) (:port this))
           socket (Socket.)]
+      (.setSoTimeout socket 0)
       (.connect socket addr)
       (assoc this :socket socket)))
 
@@ -55,4 +56,7 @@
       (.flush output-stream)))
 
   (listen [this handler] 
-    (go (handler (.getInputStream (:socket this))))))
+    (go
+      (let [socket (:socket this)]
+        (while (.isConnected socket)
+          (handler (.getInputStream socket)))))))
