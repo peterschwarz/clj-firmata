@@ -42,7 +42,7 @@
   (with-redefs [serial/open (fn [name _ rate] {:port name :rate rate})
                 serial/listen (mock-serial-listen handler)]
 
-    (let [board    (open-board "some_board")
+    (let [board    (open-serial-board "some_board")
           evt-chan (event-channel board)]
 
       (testing "board version initialized with board handshake messages"
@@ -217,7 +217,7 @@
   (with-redefs [serial/open (fn [_ _ _] :port)
                 serial/listen (mock-serial-listen (atom nil))
                 serial/write (fn [_ x] (reset! write-value x) nil)]
-    (let [board (open-board "writable_board")]
+    (let [board (open-serial-board "writable_board")]
 
       (testing "reset board"
         (reset-board! board)
@@ -342,7 +342,7 @@
     (with-redefs [serial/open (fn [_ _ _] :port)
                   serial/listen (mock-serial-listen (atom nil))
                   serial/write (fn [_ x] (swap! writes conj x) nil)]
-      (let [board (open-board "writable_board")]
+      (let [board (open-serial-board "writable_board")]
 
         (testing "ic2 request: write"
           (send-i2c-request board 6 :write 0xF 0xE 0xD)
@@ -394,7 +394,7 @@
     (with-redefs [serial/open (fn [_ _ _] :port)
                   serial/listen (mock-serial-listen (atom nil))
                   serial/close (fn [p] (reset! port p) nil)]
-      (let [board (open-board "writable_board")]
+      (let [board (open-serial-board "writable_board")]
 
         (close! board)
 

@@ -1,7 +1,7 @@
 (ns firmata.core
   (:require [clojure.core.async :as a :refer [go chan >! >!! <! alts!! <!!]]
             [firmata.stream :as st])
-  (:import [firmata.stream SerialStream]))
+  (:import [firmata.stream SerialStream SocketStream]))
 
 ; Message Types
 
@@ -329,18 +329,10 @@
   [ch default]
   (or (first (alts!! [ch (a/timeout 5000)])) default))
 
-(declare create-board)
-
 (defn open-board
-  "Opens a connection to a board on at a given port name.
-  The baud rate may be set with the option :baud-rate (default value 57600).
+  "Opens a connection to a board over a given FirmataStream.
   The buffer size for the events may be set with the option :event-buffer size
   (default value 1024)."
-  [port-name & {:keys [baud-rate event-buffer-size]
-                :or {baud-rate 57600 event-buffer-size 1024}}]
-  (create-board (SerialStream. port-name baud-rate) :event-buffer-size event-buffer-size))
-
-(defn create-board
   [stream & {:keys [event-buffer-size]
                 :or {event-buffer-size 1024}}]
   (let [board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
@@ -471,6 +463,23 @@
       (event-publisher
        [this]
        publisher))))
+
+(defn open-serial-board
+  "Opens a connection to a board on at a given port name.
+  The baud rate may be set with the option :baud-rate (default value 57600).
+  The buffer size for the events may be set with the option :event-buffer size
+  (default value 1024)."
+  [port-name & {:keys [baud-rate event-buffer-size]
+                :or {baud-rate 57600 event-buffer-size 1024}}]
+  (open-board (SerialStream. port-name baud-rate) :event-buffer-size event-buffer-size))
+
+(defn open-network-board
+  "Opens a connection to a board on at a host and port.
+  The buffer size for the events may be set with the option :event-buffer size
+  (default value 1024)."
+  [host port & {:keys [event-buffer-size]
+                           :or {event-buffer-size 1024}}]
+    (open-board (SocketStream. host port) :event-buffer-size event-buffer-size))
 
 (defn send-i2c-request
  "Sends an I2C read/write request with optional extended data."
