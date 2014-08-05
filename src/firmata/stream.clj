@@ -39,25 +39,31 @@
   (open! [this] 
     (let [addr (InetSocketAddress. (:host this) (:port this))
           socket (Socket.)]
-      (.setSoTimeout socket 0)
-      (.connect socket addr)
-      (assoc this :socket socket)))
+      (try 
+        (do 
+          (.setSoTimeout socket 0)
+          (.connect socket addr)
+          (assoc this :socket socket))
+        (catch java.net.SocketException se
+          ; TODO: Is there a better way to deal with this?
+          (throw (RuntimeException. (str "Unable to connect to " host ":" port) se))))))
 
   (close! [this]
-    (.close (:socket this))
-    (dissoc this :socket))
+    (when-let [socket (:socket this)]
+      (.close (:socket this))
+      (dissoc this :socket)))
 
   (write [this data]
-    ; TODO: This relies on the fact that we're using clj-serial, 
+    ; NOTE: This relies on the fact that we're using clj-serial, 
     ; so we can use serial/to-bytes here
-    (let [socket (:socket this)
-          output-stream (.getOutputStream socket)]
-      (.write output-stream (serial/to-bytes data))
-      (.flush output-stream)))
+    (when-let [socket (:socket this)]
+      (let [output-stream (.getOutputStream socket)]
+        (.write output-stream (serial/to-bytes data))
+        (.flush output-stream))))
 
   (listen [this handler] 
-    (go
-      (let [socket (:socket this)]
+    (when-let [socket (:socket this)]
+      (go
         (while (.isConnected socket)
           (try 
             (handler (.getInputStream socket))
