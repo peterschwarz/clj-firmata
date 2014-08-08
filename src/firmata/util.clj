@@ -20,6 +20,16 @@
   [lsb msb]
   (to-number [msb lsb]))
 
+(defn consume-until
+  "Consumes bytes from the given input stream until the end-signal is reached."
+  [end-signal in initial accumulator]
+  (loop [current-value (.read in)
+         result initial]
+    (if (= end-signal current-value)
+      result
+      (recur (.read in)
+             (accumulator result current-value)))))
+
 (defn arduino-map
   "Clojure implemation of the Arduino map function.
   http://arduino.cc/en/reference/map"
