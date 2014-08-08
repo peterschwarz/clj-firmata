@@ -31,7 +31,7 @@
    (h (create-in-stream 0xF0 0x79 9 9 "Test Firmware" 0xF7))
    nil))
 
-(defn get-event 
+(defn get-event
   [ch]
   (first (alts!! [ch (timeout 200)])))
 
@@ -209,40 +209,41 @@
 
     ))))
 
-(defn wait-for-it [] 
+(defn wait-for-it []
   (<!! (timeout 100)))
 
 (deftest test-write
-  (let [write-value (atom nil)]
+  (let [writes (atom nil)
+        last-write (fn [] @writes)]
   (with-redefs [serial/open (fn [_ _ _] :port)
                 serial/listen (mock-serial-listen (atom nil))
-                serial/write (fn [_ x] (reset! write-value x) nil)]
+                serial/write (fn [_ x] (reset! writes x) nil)]
     (let [board (open-serial-board "writable_board")]
 
       (testing "reset board"
         (reset-board! board)
         (wait-for-it)
-        (is (= 0xFF @write-value)))
+        (is (= 0xFF (last-write))))
 
       (testing "query protocol version"
         (query-version board)
         (wait-for-it)
-        (is (= 0xF9 @write-value)))
+        (is (= 0xF9 (last-write))))
 
       (testing "query firmware"
         (query-firmware board)
         (wait-for-it)
-        (is (= [0xF0 0x79 0xF7] @write-value)))
+        (is (= [0xF0 0x79 0xF7] (last-write))))
 
       (testing "query capabilities"
         (query-capabilities board)
         (wait-for-it)
-        (is (= [0xF0 0x6B 0xF7] @write-value)))
+        (is (= [0xF0 0x6B 0xF7] (last-write))))
 
       (testing "pin state query"
         (query-pin-state board 0)
         (wait-for-it)
-        (is (= [0xF0 0x6D 0 0xF7] @write-value))
+        (is (= [0xF0 0x6D 0 0xF7] (last-write)))
 
         (is (thrown? AssertionError (query-pin-state board "foo")))
         (is (thrown? AssertionError (query-pin-state board -1)))
@@ -251,28 +252,28 @@
       (testing "query analog mappings"
         (query-analog-mappings board)
         (wait-for-it)
-        (is (= [0xF0 0x69 0xF7] @write-value)))
+        (is (= [0xF0 0x69 0xF7] (last-write))))
 
       (testing "set pin mode"
         (set-pin-mode board 4 :input)
         (wait-for-it)
-        (is (= [0xF4 4 0] @write-value))
+        (is (= [0xF4 4 0] (last-write)))
 
         (set-pin-mode board 3 :output)
         (wait-for-it)
-        (is (= [0xF4 3 1] @write-value))
+        (is (= [0xF4 3 1] (last-write)))
 
         (set-pin-mode board 16 :analog)
         (wait-for-it)
-        (is (= [0xF4 16 2] @write-value))
+        (is (= [0xF4 16 2] (last-write)))
 
         (set-pin-mode board 13 :pwm)
         (wait-for-it)
-        (is (= [0xF4 13 3] @write-value))
+        (is (= [0xF4 13 3] (last-write)))
 
         (set-pin-mode board 28 :servo)
         (wait-for-it)
-        (is (= [0xF4 28 4] @write-value))
+        (is (= [0xF4 28 4] (last-write)))
 
         (is (thrown? AssertionError (set-pin-mode board 1 :foo)))
         (is (thrown? AssertionError (set-pin-mode board "foo" :input)))
@@ -282,11 +283,11 @@
       (testing "toggle analog in"
         (enable-analog-in-reporting board 1 true)
         (wait-for-it)
-        (is (= [0xC1 1] @write-value))
+        (is (= [0xC1 1] (last-write)))
 
         (enable-analog-in-reporting board 2 false)
         (wait-for-it)
-        (is (= [0xC2 0] @write-value))
+        (is (= [0xC2 0] (last-write)))
 
         (is (thrown? AssertionError (enable-analog-in-reporting board -1 true)))
         (is (thrown? AssertionError (enable-analog-in-reporting board 16 true))))
@@ -294,39 +295,79 @@
       (testing "toggle digital port reporting"
         (enable-digital-port-reporting board 1 true)
         (wait-for-it)
-        (is (= [0xD0 1] @write-value))
+        (is (= [0xD0 1] (last-write)))
 
         (enable-digital-port-reporting board 15 false)
         (wait-for-it)
-        (is (= [0xD1 0] @write-value))
+        (is (= [0xD1 0] (last-write)))
 
         (is (thrown? AssertionError (enable-digital-port-reporting board -1 true)))
         (is (thrown? AssertionError (enable-digital-port-reporting board 16 false))))
 
-      (testing "set digital value"
+      (testing "set digital value: Keyword"
         (set-digital board 1 :high)
         (wait-for-it)
-        (is (= [0x90 0x2 0x0] @write-value))
+        (is (= [0x90 0x2 0x0] (last-write)))
 
         (set-digital board 0 :high)
         (wait-for-it)
-        (is (= [0x90 0x3 0x0] @write-value))
+        (is (= [0x90 0x3 0x0] (last-write)))
 
         (set-digital board 15 :low)
         (wait-for-it)
-        (is (= [0x91 0x0 0x0] @write-value))
+        (is (= [0x91 0x0 0x0] (last-write)))
 
         (is (thrown? AssertionError (set-digital board 1 :foo)))
         (is (thrown? AssertionError (set-digital board -1 :high)))
         (is (thrown? AssertionError (set-digital board 16 :low))))
 
+      (testing "set digital value: Symbol"
+        (set-digital board 0 'low)
+        (wait-for-it)
+        (is (= [0x90 0x2 0x0] (last-write)))
+
+        (set-digital board 0 'high)
+        (wait-for-it)
+        (is (= [0x90 0x3 0x0] (last-write)))
+
+        (is (thrown? AssertionError (set-digital board 1 'foo)))
+        (is (thrown? AssertionError (set-digital board -1 :high)))
+        (is (thrown? AssertionError (set-digital board 16 :low))))
+
+      (testing "set digital value: char"
+        (set-digital board 0 \0)
+        (wait-for-it)
+        (is (= [0x90 0x2 0x0] (last-write)))
+
+        (set-digital board 0 \1)
+        (wait-for-it)
+        (is (= [0x90 0x3 0x0] (last-write)))
+
+        (is (thrown? AssertionError (set-digital board 1 \f)))
+        (is (thrown? AssertionError (set-digital board -1 :high)))
+        (is (thrown? AssertionError (set-digital board 16 :low))))
+
+      (testing "set digital value: literal"
+        (set-digital board 0 0)
+        (wait-for-it)
+        (is (= [0x90 0x2 0x0] (last-write)))
+
+        (set-digital board 0 1)
+        (wait-for-it)
+        (is (= [0x90 0x3 0x0] (last-write)))
+
+        (is (thrown? AssertionError (set-digital board 1 23)))
+        (is (thrown? AssertionError (set-digital board -1 :high)))
+        (is (thrown? AssertionError (set-digital board 16 :low))))
+
       (testing "set analog value"
         (set-analog board 4 1000)
-        (is (= [0xE4 0x68 0x7] @write-value))
+        (wait-for-it)
+        (is (= [0xE4 0x68 0x7] (last-write)))
 
         (set-analog board 16 1000)
         (wait-for-it)
-        (is (= [0xF0 0x6F 16 0x68 0x7 0xF7] @write-value))
+        (is (= [0xF0 0x6F 16 0x68 0x7 0xF7] (last-write)))
 
         (is (thrown? AssertionError (set-analog board -1 1000)))
         (is (thrown? AssertionError (set-analog board 128 1000))))
@@ -334,7 +375,7 @@
       (testing "set sampling interval"
         (set-sampling-interval board 1000)
         (wait-for-it)
-        (is (= [0xF0 0x7A 0x68 0x7 0xF7] @write-value)))
+        (is (= [0xF0 0x7A 0x68 0x7 0xF7] (last-write))))
     ))))
 
 (deftest test-i2c-messages
@@ -399,3 +440,5 @@
         (close! board)
 
         (is (= :port @port))))))
+
+(run-tests)

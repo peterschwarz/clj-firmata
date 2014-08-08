@@ -329,6 +329,21 @@
   [ch default]
   (or (first (alts!! [ch (a/timeout 5000)])) default))
 
+(defn- high-low-value 
+  "Takes the possible input values from the set [:high :low 1 0 'high 'low \\1 \\0]
+  and converts it to a digital value."
+  [value]
+  (assert (some #(= value %) [:high :low 1 0 'high 'low "1" "0" \1 \0])
+    "value must be from the set #{:high :low 1 0 'high 'low  \\1 \\0}")
+  (condp = value
+    1     :high
+    'high :high
+    \1    :high
+    0     :low
+    'low  :low
+    \0    :low
+    value))
+
 (defn open-board
   "Opens a connection to a board over a given FirmataStream.
   The buffer size for the events may be set with the option :event-buffer size
@@ -422,12 +437,11 @@
       (set-digital
        [this pin value]
        (assert (pin? pin 16) "must supply a valid pin value 0-15")
-       (assert (or (= :high value) (= :low value)) "must supply either :high or :low")
 
        (let [port (port-of pin)
              pin-value (bit-shift-left 1 (bit-and pin 0x07))
              current-port (get-in @board-state [:digital-out port])
-             next-port (if (= :high value)
+             next-port (if (= :high (high-low-value value))
                          (bit-or current-port pin-value)
                          (bit-and current-port (bit-not pin-value)))]
          (swap! board-state assoc-in [:digital-out port] next-port)
