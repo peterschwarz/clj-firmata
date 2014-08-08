@@ -161,7 +161,8 @@
             (is (= :digital-msg (:type event)))
             (is (= 0 (:port event)))
             (is (= 0 (:pin event)))
-            (is (= :high (:value event))))
+            (is (= :high (:value event)))
+            (is (= 1 (:raw-value event))))
           (is (= "Expected event" "but was no event"))))
 
       (testing "read digital message: low boundary"
@@ -170,7 +171,8 @@
           (do
             (is (= :digital-msg (:type event)))
             (is (= 0 (:pin event)))
-            (is (= :low (:value event))))
+            (is (= :low (:value event)))
+            (is (= 0 (:raw-value event))))
           (is (= "Expected event" "but was no event"))))
 
       (testing "read digital message: high boundary"
@@ -179,7 +181,8 @@
           (do
             (is (= :digital-msg (:type event)))
             (is (= 127 (:pin event)))
-            (is (= :high (:value event))))
+            (is (= :high (:value event)))
+            (is (= 1 (:raw-value event))))
           (is (= "Expected event" "but was no event"))))
 
       (testing "read analog message"
@@ -208,6 +211,38 @@
           (is (= "Expected event" "but was no event"))))
 
     ))))
+
+(deftest test-read-events-alternate-from-raw
+
+  (let [handler (atom nil)]
+
+  (with-redefs [serial/open (fn [name _ rate] {:port name :rate rate})
+                serial/listen (mock-serial-listen handler)]
+
+    (let [board    (open-serial-board "some_board"
+                      :from-raw-digital #(if (= 1 %) :foo :bar))
+          evt-chan (event-channel board)]
+
+      (testing "read digital message: low boundary"
+        (@handler (create-in-stream 0x90 0 0))
+        (if-let [event (get-event evt-chan)]
+          (do
+            (is (= 0 (:pin event)))
+            (is (= :bar (:value event)))
+            (is (= 0 (:raw-value event))))
+          (is (= "Expected event" "but was no event"))))
+
+      (testing "read digital message: high boundary"
+        (@handler (create-in-stream 0x9F 0x00 0x01))
+        (if-let [event (get-event evt-chan)]
+          (do
+            (is (= :digital-msg (:type event)))
+            (is (= 127 (:pin event)))
+            (is (= :foo (:value event)))
+            (is (= 1 (:raw-value event))))
+          (is (= "Expected event" "but was no event"))))
+
+          ))))
 
 (defn wait-for-it []
   (<!! (timeout 100)))
@@ -440,5 +475,3 @@
         (close! board)
 
         (is (= :port @port))))))
-
-(run-tests)

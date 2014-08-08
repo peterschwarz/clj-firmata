@@ -279,13 +279,14 @@
         previous-port (get-in @(:state board)[:digital-in port])
         updated-port (bytes-to-int (.read in) (.read in))
         pin-change (- updated-port previous-port)
-        pin (-> pin-change Math/abs BigInteger/valueOf .getLowestSetBit (+ (* 8 port)))
-        value (if (> pin-change 0) :high :low)]
+        pin (-> pin-change Math/abs BigInteger/valueOf .getLowestSetBit (max 0) (+ (* 8 port)))
+        raw-value (if (> pin-change 0) 1 0)]
     (swap! (:state board) assoc-in [:digital-in port] updated-port)
     {:type :digital-msg
      :port port
      :pin pin
-     :value value}))
+     :value ((:from-raw-digital board) raw-value)
+     :raw-value raw-value}))
 
 (defn- read-event
   [board in]
@@ -298,8 +299,7 @@
      (<= 0xE0 message 0xEF) (read-analog message in)
 
      :else {:type :unknown-msg
-            :value message
-            })))
+            :value message})))
 
 (defn- firmata-handler
   [board]
@@ -344,12 +344,17 @@
     \0    :low
     value))
 
+(defn to-keyword 
+  "Converts the raw digital values to keywords high or low."
+  [raw-value] (if (= 1 raw-value) :high :low))
+
 (defn open-board
   "Opens a connection to a board over a given FirmataStream.
   The buffer size for the events may be set with the option :event-buffer size
   (default value 1024)."
-  [stream & {:keys [event-buffer-size]
-                :or {event-buffer-size 1024}}]
+  [stream & {:keys [event-buffer-size from-raw-digital]
+                :or {event-buffer-size 1024 from-raw-digital to-keyword}}]
+  (assert from-raw-digital ":from-raw-digital may not be nil")
   (let [board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
                            :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})
 
@@ -359,7 +364,9 @@
 
         ; Open the stream and attach ourselves to it
         port (st/open! stream)
-        _ (st/listen port (firmata-handler {:state board-state :channel read-ch}))
+        _ (st/listen port (firmata-handler {:state board-state 
+                                            :channel read-ch 
+                                            :from-raw-digital from-raw-digital}))
 
         ; Need to pull these values before wiring up the remaining channels, otherwise, they get lost
         _ (swap! board-state assoc :board-version (take-with-timeout read-ch {:type :protocol-version :version "Unknown"}))
@@ -483,17 +490,21 @@
   The baud rate may be set with the option :baud-rate (default value 57600).
   The buffer size for the events may be set with the option :event-buffer size
   (default value 1024)."
-  [port-name & {:keys [baud-rate event-buffer-size]
-                :or {baud-rate 57600 event-buffer-size 1024}}]
-  (open-board (SerialStream. port-name baud-rate) :event-buffer-size event-buffer-size))
+  [port-name & {:keys [baud-rate event-buffer-size from-raw-digital]
+                :or {baud-rate 57600 event-buffer-size 1024 from-raw-digital to-keyword}}]
+  (open-board (SerialStream. port-name baud-rate) 
+              :event-buffer-size event-buffer-size
+              :from-raw-digital from-raw-digital))
 
 (defn open-network-board
   "Opens a connection to a board on at a host and port.
   The buffer size for the events may be set with the option :event-buffer size
   (default value 1024)."
-  [host port & {:keys [event-buffer-size]
-                           :or {event-buffer-size 1024}}]
-    (open-board (SocketStream. host port) :event-buffer-size event-buffer-size))
+  [host port & {:keys [event-buffer-size from-raw-digital]
+                :or {event-buffer-size 1024 from-raw-digital to-keyword}}]
+    (open-board (SocketStream. host port) 
+                :event-buffer-size event-buffer-size
+                :from-raw-digital from-raw-digital))
 
 (defn send-i2c-request
  "Sends an I2C read/write request with optional extended data."
