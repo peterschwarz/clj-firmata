@@ -8,13 +8,13 @@
 
 Add the following to your `project.clj`
 
-	[clj-firmata 1.1.2]
+	[clj-firmata 2.0.0-SNAPSHOT]
 
 ### Connect to a Board
 
 Connecting to a board is a simple as
 
-    (def board (open-board "cu.usbmodemfa141"))
+    (def board (open-serial-board "cu.usbmodemfa141"))
 
 replacing `cu.usbmodemfa141` with the name of the appropriate serial port.
 

@@ -4,6 +4,8 @@
   (:import [java.net InetSocketAddress Socket]))
 
 (defprotocol FirmataStream
+  "A FirmataStream provides methods for creating connections, writing 
+  values to and listening for events on a Firmata-enabled device."
 
   (open! [this] "opens the stream")
   (close! [this] "closes the stream")
