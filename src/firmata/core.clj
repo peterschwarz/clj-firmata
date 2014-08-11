@@ -318,7 +318,7 @@
        publisher))))
 
 (defn open-serial-board
-  "Opens a connection to a board on at a given port name.
+  "Opens a connection to a board at a given port name.
   The baud rate may be set with the option :baud-rate (default value 57600).
   The buffer size for the events may be set with the option :event-buffer size
   (default value 1024)."
@@ -329,7 +329,7 @@
               :from-raw-digital from-raw-digital))
 
 (defn open-network-board
-  "Opens a connection to a board on at a host and port.
+  "Opens a connection to a board at a host and port.
   The buffer size for the events may be set with the option :event-buffer size
   (default value 1024)."
   [host port & {:keys [event-buffer-size from-raw-digital]

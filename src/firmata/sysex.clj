@@ -52,6 +52,27 @@
              (.read in)
              (inc pin)))))
 
+(defn read-two-byte-data
+  "Consumes the value of a SysEx message as an list of short values."
+  [in]
+  (loop [result []
+         current-byte (.read in)]
+    (if (= SYSEX_END current-byte )
+      result
+      (recur (conj result (bytes-to-int current-byte (.read in)))
+             (.read in)))))
+
+(defn- read-analog-mappings
+  [in]
+  (loop [result {}
+         current-byte (.read in)
+         pin 0]
+    (if (= SYSEX_END current-byte)
+      result
+      (recur (if-not (= current-byte 0x7F) (assoc result current-byte pin) result)
+             (.read in)
+             (inc pin)))))
+
 (defmulti read-sysex-event
   "Reads a sysex message.  
 
@@ -88,26 +109,6 @@
      :pin pin
      :mode mode
      :value value}))
-
-(defn read-two-byte-data
-  [in]
-  (loop [result []
-         current-byte (.read in)]
-    (if (= SYSEX_END current-byte )
-      result
-      (recur (conj result (bytes-to-int current-byte (.read in)))
-             (.read in)))))
-
-(defn- read-analog-mappings
-  [in]
-  (loop [result {}
-         current-byte (.read in)
-         pin 0]
-    (if (= SYSEX_END current-byte)
-      result
-      (recur (if-not (= current-byte 0x7F) (assoc result current-byte pin) result)
-             (.read in)
-             (inc pin)))))
 
 (defmethod read-sysex-event ANALOG_MAPPING_RESPONSE
   [in]
