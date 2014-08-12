@@ -4,7 +4,7 @@
   (:import [java.net InetSocketAddress Socket]))
 
 (defprotocol FirmataStream
-  "A FirmataStream provides methods for creating connections, writing 
+  "A FirmataStream provides methods for creating connections, writing
   values to and listening for events on a Firmata-enabled device."
 
   (open! [this] "opens the stream")
@@ -38,17 +38,24 @@
 (defrecord SocketStream [host port]
   FirmataStream
 
-  (open! [this] 
-    (let [addr (InetSocketAddress. (:host this) (:port this))
-          socket (Socket.)]
-      (try 
-        (do 
+  (open! [this]
+    (try
+      (let [addr (InetSocketAddress. (:host this) (:port this))
+            socket (Socket.)]
+        (do
           (.setSoTimeout socket 0)
           (.connect socket addr)
-          (assoc this :socket socket))
-        (catch java.net.SocketException se
-          ; TODO: Is there a better way to deal with this?
-          (throw (RuntimeException. (str "Unable to connect to " host ":" port) se))))))
+          (assoc this :socket socket)))
+
+      ; TODO: Is there a better way to deal with these?
+      (catch java.net.UnknownHostException uhe
+        (throw (RuntimeException. (str "Unknown host - " host) uhe)))
+
+      (catch IllegalArgumentException iae
+        (throw (RuntimeException. (str "Invalid port - " port) iae)))
+
+      (catch java.net.SocketException se
+        (throw (RuntimeException. (str "Unable to connect to " host ":" port) se)))))
 
   (close! [this]
     (when-let [socket (:socket this)]
@@ -56,17 +63,17 @@
       (dissoc this :socket)))
 
   (write [this data]
-    ; NOTE: This relies on the fact that we're using clj-serial, 
+    ; NOTE: This relies on the fact that we're using clj-serial,
     ; so we can use serial/to-bytes here
     (when-let [socket (:socket this)]
       (let [output-stream (.getOutputStream socket)]
         (.write output-stream (serial/to-bytes data))
         (.flush output-stream))))
 
-  (listen [this handler] 
+  (listen [this handler]
     (when-let [socket (:socket this)]
       (go
         (while (.isConnected socket)
-          (try 
+          (try
             (handler (.getInputStream socket))
             (catch java.net.SocketException se)))))))
