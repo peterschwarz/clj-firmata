@@ -1,5 +1,6 @@
 (ns firmata.util
-  (:require [clojure.core.async :as a]))
+  (:require [clojure.core.async :as a]
+            [serial.core :refer [port-ids]]))
 
 ; Number conversions
 
@@ -53,3 +54,19 @@
   "For debug output"
   [x] (str "0x" (.toUpperCase (Integer/toHexString x))))
 
+(defn- substring? [sub st]
+  (not= (.indexOf st sub) -1))
+
+(defn- arduino-port?
+  "Compares port name with known arduino port formats"
+  [port-name]
+  (or
+    (substring? "tty.usbmodem" port-name)    ;; Uno or Mega 2560
+    (substring? "tty.usbserial" port-name))) ;; Older boards
+
+(defn detect-arduino-port
+  "Returns the first arduino serial port based on port
+   name, or nil. Currently only works for Mac."
+  []
+  (first (filter arduino-port?
+                 (map #(.getName %) (port-ids)))))
