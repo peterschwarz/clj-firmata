@@ -1,6 +1,6 @@
 (ns firmata.receiver
   (:require [firmata.core :refer :all]
-            [clojure.core.async :as a]))
+            [clojure.core.async :as a :refer [<!]]))
 
 (defprotocol EventHandler
   (stop-receiver! [handler] "Stops receiving events on a given handler"))
