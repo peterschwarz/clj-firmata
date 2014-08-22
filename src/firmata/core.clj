@@ -179,6 +179,109 @@
   "Converts the raw digital values to keywords high or low."
   [raw-value] (if (= 1 raw-value) :high :low))
 
+(defrecord ^:private Board [port board-state read-ch write-ch mult-ch pub-ch publisher create-channel]
+  Firmata
+
+  (close!
+   [this]
+   (a/close! write-ch)
+   (a/close! read-ch)
+   (st/close! port)
+   nil)
+
+  (reset-board!
+    [this]
+    (send-message this SYSTEM_RESET))
+
+  (version
+   [this]
+   (:board-version @board-state ))
+
+  (firmware
+   [this]
+   (:board-firmware @board-state))
+
+  (query-firmware
+   [this]
+   (send-message this [SYSEX_START REPORT_FIRMWARE SYSEX_END]))
+
+  (query-capabilities
+   [this]
+   (send-message this [SYSEX_START CAPABILITY_QUERY SYSEX_END]))
+
+  (query-version
+   [this]
+   (send-message this PROTOCOL_VERSION))
+
+  (query-analog-mappings
+   [this]
+   (send-message this [SYSEX_START ANALOG_MAPPING_QUERY SYSEX_END]))
+
+  (query-pin-state
+   [this pin]
+   (assert (pin? pin) "must supply a valid pin value 0-127")
+   (send-message this [SYSEX_START PIN_STATE_QUERY pin SYSEX_END]))
+
+  (set-pin-mode
+   [this pin mode]
+   (assert (pin? pin) "must supply a valid pin value 0-127")
+   (assert (mode mode-values) (str "must supply a valid mode: " (clojure.string/join ", " modes)))
+   (send-message this [SET_PIN_IO_MODE pin (mode mode-values)]))
+
+  (enable-analog-in-reporting
+   [this pin enabled?]
+   (assert (pin? pin 16) "must supply a valid pin value 0-15")
+   (enable-reporting this REPORT_ANALOG_PIN pin enabled?))
+
+  (enable-digital-port-reporting
+   [this pin enabled?]
+   (assert (pin? pin 16) "must supply a valid pin value 0-15")
+   (enable-reporting this REPORT_DIGITAL_PORT (port-of pin) enabled?))
+
+  (set-digital
+   [this pin value]
+   (assert (pin? pin 16) "must supply a valid pin value 0-15")
+
+   (let [port (port-of pin)
+         pin-value (bit-shift-left 1 (bit-and pin 0x07))
+         current-port (get-in @board-state [:digital-out port])
+         next-port (if (= :high (high-low-value value))
+                     (bit-or current-port pin-value)
+                     (bit-and current-port (bit-not pin-value)))]
+     (swap! board-state assoc-in [:digital-out port] next-port)
+     (send-message this [(pin-command DIGITAL_IO_MESSAGE port) (lsb next-port) (msb next-port)])))
+
+  (set-analog
+   [this pin value]
+   (assert (pin? pin) "must supply a valid pin value 0-127")
+   (send-message this
+        (if (> pin 15)
+          [SYSEX_START EXTENDED_ANALOG pin (lsb value) (msb value) SYSEX_END]
+          [(pin-command ANALOG_IO_MESSAGE pin) (lsb value) (msb value)])))
+
+  (set-sampling-interval
+   [this interval]
+   (send-message this [SYSEX_START SAMPLING_INTERVAL (lsb interval) (msb interval) SYSEX_END]))
+
+  (send-message
+   [this data]
+   (>!! write-ch data)
+   this)
+
+  (event-channel
+   [this]
+   (let [ec (create-channel)]
+     (a/tap mult-ch ec)
+     ec))
+
+  (release-event-channel
+   [this channel]
+   (a/untap mult-ch channel))
+
+  (event-publisher
+   [this]
+   publisher))
+
 (defn open-board
   "Opens a connection to a board over a given FirmataStream.
   The buffer size for the events may be set with the option :event-buffer size
@@ -200,8 +303,8 @@
                                             :from-raw-digital from-raw-digital}))
 
         ; Need to pull these values before wiring up the remaining channels, otherwise, they get lost
-        _ (swap! board-state assoc :board-version (take-with-timeout read-ch {:type :protocol-version :version "Unknown"}))
-        _ (swap! board-state assoc :board-firmware (take-with-timeout read-ch {:type :firmware-report :name "Unknown" :version "Unknown"}))
+        _ (swap! board-state assoc :board-version (:version (take-with-timeout read-ch {:type :protocol-version :version "Unknown"})))
+        _ (swap! board-state assoc :board-firmware (dissoc (take-with-timeout read-ch {:name "Unknown" :version "Unknown"}) :type))
 
         ; For sending events to various receivers
         mult-ch (a/mult read-ch)
@@ -215,106 +318,7 @@
             (st/write port data)
             (recur))))
 
-    (reify Firmata
-      (close!
-       [this]
-       (a/close! write-ch)
-       (a/close! read-ch)
-       (st/close! port)
-       nil)
-
-      (reset-board!
-        [this]
-        (send-message this SYSTEM_RESET))
-
-      (version
-       [this]
-       (-> @board-state :board-version :version))
-
-      (firmware
-       [this]
-        (dissoc (:board-firmware @board-state) :type))
-
-      (query-firmware
-       [this]
-       (send-message this [SYSEX_START REPORT_FIRMWARE SYSEX_END]))
-
-      (query-capabilities
-       [this]
-       (send-message this [SYSEX_START CAPABILITY_QUERY SYSEX_END]))
-
-      (query-version
-       [this]
-       (send-message this PROTOCOL_VERSION))
-
-      (query-analog-mappings
-       [this]
-       (send-message this [SYSEX_START ANALOG_MAPPING_QUERY SYSEX_END]))
-
-      (query-pin-state
-       [this pin]
-       (assert (pin? pin) "must supply a valid pin value 0-127")
-       (send-message this [SYSEX_START PIN_STATE_QUERY pin SYSEX_END]))
-
-      (set-pin-mode
-       [this pin mode]
-       (assert (pin? pin) "must supply a valid pin value 0-127")
-       (assert (mode mode-values) (str "must supply a valid mode: " (clojure.string/join ", " modes)))
-       (send-message this [SET_PIN_IO_MODE pin (mode mode-values)]))
-
-      (enable-analog-in-reporting
-       [this pin enabled?]
-       (assert (pin? pin 16) "must supply a valid pin value 0-15")
-       (enable-reporting this REPORT_ANALOG_PIN pin enabled?))
-
-      (enable-digital-port-reporting
-       [this pin enabled?]
-       (assert (pin? pin 16) "must supply a valid pin value 0-15")
-       (enable-reporting this REPORT_DIGITAL_PORT (port-of pin) enabled?))
-
-      (set-digital
-       [this pin value]
-       (assert (pin? pin 16) "must supply a valid pin value 0-15")
-
-       (let [port (port-of pin)
-             pin-value (bit-shift-left 1 (bit-and pin 0x07))
-             current-port (get-in @board-state [:digital-out port])
-             next-port (if (= :high (high-low-value value))
-                         (bit-or current-port pin-value)
-                         (bit-and current-port (bit-not pin-value)))]
-         (swap! board-state assoc-in [:digital-out port] next-port)
-         (send-message this [(pin-command DIGITAL_IO_MESSAGE port) (lsb next-port) (msb next-port)])))
-
-      (set-analog
-       [this pin value]
-       (assert (pin? pin) "must supply a valid pin value 0-127")
-       (send-message this
-            (if (> pin 15)
-              [SYSEX_START EXTENDED_ANALOG pin (lsb value) (msb value) SYSEX_END]
-              [(pin-command ANALOG_IO_MESSAGE pin) (lsb value) (msb value)])))
-
-      (set-sampling-interval
-       [this interval]
-       (send-message this [SYSEX_START SAMPLING_INTERVAL (lsb interval) (msb interval) SYSEX_END]))
-
-      (send-message
-       [this data]
-       (>!! write-ch data)
-       this)
-
-      (event-channel
-       [this]
-       (let [ec (create-channel)]
-         (a/tap mult-ch ec)
-         ec))
-
-      (release-event-channel
-       [this channel]
-       (a/untap mult-ch channel))
-
-      (event-publisher
-       [this]
-       publisher))))
+    (->Board port board-state read-ch write-ch mult-ch pub-ch publisher create-channel)))
 
 (defn open-serial-board
   "Opens a connection to a board at a given port name.
