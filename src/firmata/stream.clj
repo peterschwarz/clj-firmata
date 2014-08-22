@@ -34,8 +34,11 @@
     (when-let [serial-port (:serial-port this)]
       (serial/listen serial-port handler false))))
 
+(defn create-serial-stream [port-name baud-rate]
+  (SerialStream. port-name baud-rate))
 
-(defrecord SocketStream [host port]
+
+(defrecord SocketClientStream [host port]
   FirmataStream
 
   (open! [this]
@@ -77,3 +80,6 @@
           (try
             (handler (.getInputStream socket))
             (catch java.net.SocketException se)))))))
+
+(defn create-socket-client-stream [host port]
+  (SocketClientStream. host port))

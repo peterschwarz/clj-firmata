@@ -2,8 +2,7 @@
   (:require [clojure.core.async :as a :refer [go chan >! >!! <! alts!! <!!]]
             [firmata.stream :as st]
             [firmata.sysex :refer :all]
-            [firmata.util :refer :all])
-  (:import [firmata.stream SerialStream SocketStream]))
+            [firmata.util :refer :all]))
 
 ; Message Types
 
@@ -324,7 +323,7 @@
   (default value 1024)."
   [port-name & {:keys [baud-rate event-buffer-size from-raw-digital]
                 :or {baud-rate 57600 event-buffer-size 1024 from-raw-digital to-keyword}}]
-  (open-board (SerialStream. port-name baud-rate) 
+  (open-board (st/create-serial-stream port-name baud-rate) 
               :event-buffer-size event-buffer-size
               :from-raw-digital from-raw-digital))
 
@@ -334,6 +333,6 @@
   (default value 1024)."
   [host port & {:keys [event-buffer-size from-raw-digital]
                 :or {event-buffer-size 1024 from-raw-digital to-keyword}}]
-    (open-board (SocketStream. host port) 
+    (open-board (st/create-socket-client-stream host port) 
                 :event-buffer-size event-buffer-size
                 :from-raw-digital from-raw-digital))
