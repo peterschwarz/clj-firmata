@@ -1,7 +1,17 @@
 (ns firmata.stream
   (:require [serial.core :as serial]
             [clojure.core.async :as a :refer [go <!! timeout]])
-  (:import [java.net InetSocketAddress Socket]))
+  (:import [java.net InetSocketAddress Socket]
+           [java.io InputStream]))
+
+(defprotocol ByteReader
+  (read! [this] "reads a byte, and removes it from the stream"))
+
+(extend-type InputStream
+
+  ByteReader
+  
+  (read! [this] (.read this)))
 
 (defprotocol FirmataStream
   "A FirmataStream provides methods for creating connections, writing

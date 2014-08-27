@@ -94,12 +94,12 @@
 
 (defn- read-version
   [in]
-  (str (.read in) "." (.read in)))
+  (str (st/read! in) "." (st/read! in)))
 
 (defn- read-analog
   [message in]
   (let [pin (- message ANALOG_IO_MESSAGE)
-        value (bytes-to-int (.read in) (.read in))]
+        value (bytes-to-int (st/read! in) (st/read! in))]
     {:type :analog-msg
      :pin pin
      :value value}))
@@ -108,7 +108,7 @@
   [board message in]
   (let [port (- message DIGITAL_IO_MESSAGE)
         previous-port (get-in @(:state board)[:digital-in port])
-        updated-port (bytes-to-int (.read in) (.read in))
+        updated-port (bytes-to-int (st/read! in) (st/read! in))
         pin-change (- updated-port previous-port)
         pin (-> pin-change Math/abs BigInteger/valueOf .getLowestSetBit (max 0) (+ (* 8 port)))
         raw-value (if (> pin-change 0) 1 0)]
@@ -121,7 +121,7 @@
 
 (defn- read-event
   [board in]
-  (let [message (.read in)]
+  (let [message (st/read! in)]
     (cond
      (= PROTOCOL_VERSION message) (let [version (read-version in)]
                                     {:type :protocol-version, :version version})
