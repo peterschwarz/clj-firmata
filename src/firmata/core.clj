@@ -156,9 +156,11 @@
   [board report-type address enabled?]
   (send-message board [(pin-command report-type address) (if enabled? 1 0)]))
 
-(defn- take-with-timeout
-  [ch default]
-  (or (first (alts!! [ch (a/timeout 5000)])) default))
+(defn- take-with-timeout!
+  [ch default millis f]
+  (go 
+    (let [x (or (first (a/alts! [ch (a/timeout millis)])) default)]
+      (f x))))
 
 (defn- high-low-value 
   "Takes the possible input values from the set [:high :low 1 0 'high 'low \\1 \\0]
@@ -265,7 +267,7 @@
 
   (send-message
    [this data]
-   (>!! write-ch data)
+   (a/put! write-ch data)
    this)
 
   (event-channel
@@ -282,31 +284,10 @@
    [this]
    publisher))
 
-(defn open-board
-  "Opens a connection to a board over a given FirmataStream.
-  The buffer size for the events may be set with the option :event-buffer size
-  (default value 1024)."
-  [stream & {:keys [event-buffer-size from-raw-digital]
-                :or {event-buffer-size 1024 from-raw-digital to-keyword}}]
-  (assert from-raw-digital ":from-raw-digital may not be nil")
-  (let [board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
-                           :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})
-
-        create-channel #(chan (a/sliding-buffer event-buffer-size))
-        read-ch (create-channel)
-        write-ch (chan 1)
-
-        ; Open the stream and attach ourselves to it
-        port (st/open! stream)
-        _ (st/listen port (firmata-handler {:state board-state 
-                                            :channel read-ch 
-                                            :from-raw-digital from-raw-digital}))
-
-        ; Need to pull these values before wiring up the remaining channels, otherwise, they get lost
-        _ (swap! board-state assoc :board-version (:version (take-with-timeout read-ch {:type :protocol-version :version "Unknown"})))
-        _ (swap! board-state assoc :board-firmware (dissoc (take-with-timeout read-ch {:name "Unknown" :version "Unknown"}) :type))
-
-        ; For sending events to various receivers
+(defn- complete-board 
+  "Completes board setup, after all the events are recieved"
+  [board-state port create-channel read-ch]
+  (let [write-ch (chan 1)
         mult-ch (a/mult read-ch)
         pub-ch (create-channel)
         publisher (a/pub pub-ch #(vector (:type %) (:pin %)))]
@@ -319,6 +300,43 @@
             (recur))))
 
     (->Board port board-state read-ch write-ch mult-ch pub-ch publisher create-channel)))
+
+(defn open-board
+  "Opens a connection to a board over a given FirmataStream.
+  The buffer size for the events may be set with the option :event-buffer size
+  (default value 1024)."
+  [stream & {:keys [event-buffer-size from-raw-digital warmup-time]
+                :or {event-buffer-size 1024 from-raw-digital to-keyword warmup-time 5000}}]
+  (assert from-raw-digital ":from-raw-digital may not be nil")
+  (let [board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
+                           :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})
+
+        create-channel #(chan (a/sliding-buffer event-buffer-size))
+        read-ch (create-channel)
+
+        port (st/open! stream)
+        result-ch (chan 1)]
+
+    (st/listen port (firmata-handler {:state board-state 
+                                      :channel read-ch 
+                                      :from-raw-digital from-raw-digital}))
+
+    ; Need to pull these values before wiring up the remaining channels, otherwise, they get lost
+    (take-with-timeout! read-ch {:type :protocol-version :version "Unknown"} warmup-time
+      (fn [version-event] 
+        (swap! board-state assoc :board-version (:version version-event))
+
+        (take-with-timeout! read-ch  {:name "Unknown" :version "Unknown"} warmup-time
+          (fn [firmware-event]
+            (swap! board-state assoc :board-firmware (dissoc firmware-event :type))
+
+            (a/put! result-ch  
+              (complete-board board-state port create-channel read-ch))))))
+
+    ; This can be replaced with 
+    ; (take! result-ch callback)
+    ; for clojurescript
+    (<!! result-ch)))
 
 (defn open-serial-board
   "Opens a connection to a board at a given port name.
@@ -338,5 +356,6 @@
   [host port & {:keys [event-buffer-size from-raw-digital]
                 :or {event-buffer-size 1024 from-raw-digital to-keyword}}]
     (open-board (st/create-socket-client-stream host port) 
+                :warmup-time 0
                 :event-buffer-size event-buffer-size
                 :from-raw-digital from-raw-digital))
