@@ -46,3 +46,13 @@
 
        255 (arduino-constrain 255 0 255)
        255 (arduino-constrain 256 0 255)))
+
+(deftest lowest-set-bit-test
+  (are [x y] (= x y)
+    0 (lowest-set-bit 0)
+    0 (lowest-set-bit 1)
+    1 (lowest-set-bit 2)
+    0 (lowest-set-bit 3)
+    2 (lowest-set-bit 4)
+    0 (lowest-set-bit 5)
+    1 (lowest-set-bit 6)))

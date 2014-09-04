@@ -21,6 +21,9 @@
   [lsb msb]
   (to-number [msb lsb]))
 
+(defn lowest-set-bit [x]
+  (int (max 0 (/ (Math/log (bit-and x (- x))) (Math/log 2)))))
+
 (defn consume-until
   "Consumes bytes from the given input stream until the end-signal is reached."
   [end-signal in initial accumulator]

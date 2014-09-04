@@ -110,7 +110,7 @@
         previous-port (get-in @(:state board)[:digital-in port])
         updated-port (bytes-to-int (st/read! in) (st/read! in))
         pin-change (- updated-port previous-port)
-        pin (-> pin-change Math/abs BigInteger/valueOf .getLowestSetBit (max 0) (+ (* 8 port)))
+        pin (+ (lowest-set-bit pin-change) (* 8 port))
         raw-value (if (> pin-change 0) 1 0)]
     (swap! (:state board) assoc-in [:digital-in port] updated-port)
     {:type :digital-msg
