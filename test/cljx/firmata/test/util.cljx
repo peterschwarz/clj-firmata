@@ -1,13 +1,13 @@
 (ns firmata.test.util
   (:require #+clj 
             [clojure.test :as t
-                   :refer (is are deftest with-test run-tests testing)]
+                   :refer (is are deftest testing)]
             #+cljs
             [cemerick.cljs.test :as t]
             [firmata.util :refer [to-hex-str arduino-map arduino-constrain lowest-set-bit]])
   #+cljs 
   (:require-macros [cemerick.cljs.test
-                       :refer (is are deftest with-test run-tests testing test-var)]))
+                       :refer (is are deftest testing )]))
 
 
 (deftest to-hex-str-test

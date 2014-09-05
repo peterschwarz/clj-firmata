@@ -1,8 +1,16 @@
 (ns firmata.stream
+  #+clj
   (:require [serial.core :as serial]
-            [clojure.core.async :as a :refer [go <!! timeout]])
+            [clojure.core.async :as a :refer [go <! timeout]])
+  #+cljs
+  (:require [cljs.nodejs :as nodejs]
+            [cljs.core.async    :as a :refer  [<! timeout]])
+  #+clj
   (:import [java.net InetSocketAddress Socket]
-           [java.io InputStream]))
+           [java.io InputStream])
+  #+cljs
+  (:require-macros [cljs.core.async.macros :refer [go]]))
+
 
 (defprotocol ByteReader
   (read! [this] "reads a byte, and removes it from the stream"))
@@ -89,7 +97,10 @@
         (while (.isConnected socket)
           (try
             (handler (.getInputStream socket))
-            (catch java.net.SocketException se)))))))
+            (catch java.net.SocketException se))
+          ; slows the loop down to the the update rate of the device
+          ; TODO: This should be configurable
+          (<! (timeout 19)))))))
 
 (defn create-socket-client-stream [host port]
   (SocketClientStream. host port))

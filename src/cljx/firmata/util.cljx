@@ -55,8 +55,9 @@
 
 (defn to-hex-str
   "For debug output"
-  [x] (str "0x" #+clj (.toUpperCase (Integer/toHexString x))
-                #+cljs (.toString x 16)))
+  [x] (str "0x" (.toUpperCase 
+                #+clj (Integer/toHexString x)
+                #+cljs (.toString x 16))))
 
 (defn- substring? [sub st]
   (not= (.indexOf st sub) -1))
