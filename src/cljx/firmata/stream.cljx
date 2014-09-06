@@ -15,6 +15,7 @@
 (defprotocol ByteReader
   (read! [this] "reads a byte, and removes it from the stream"))
 
+#+clj
 (extend-type InputStream
 
   ByteReader
@@ -32,6 +33,7 @@
   (write [this data]))
 
 
+#+clj 
 (defrecord SerialStream [port-name baud-rate]
   FirmataStream
 
@@ -52,10 +54,14 @@
     (when-let [serial-port (:serial-port this)]
       (serial/listen serial-port handler false))))
 
+#+cljs
+(defrecord SerialStream [port-name baud-rate])
+
 (defn create-serial-stream [port-name baud-rate]
   (SerialStream. port-name baud-rate))
 
 
+#+clj
 (defrecord SocketClientStream [host port]
   FirmataStream
 
@@ -101,6 +107,9 @@
           ; slows the loop down to the the update rate of the device
           ; TODO: This should be configurable
           (<! (timeout 19)))))))
+
+#+cljs
+(defrecord SocketClientStream [host port])
 
 (defn create-socket-client-stream [host port]
   (SocketClientStream. host port))
