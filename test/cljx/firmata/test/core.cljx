@@ -172,12 +172,12 @@
     (testing "reset board"
       (reset-board! board)
       (wait-for-it (fn []
-        (is (= 0xFF (last-write client))))))
+        (is (= [0xFF] (last-write client))))))
 
     (testing "query protocol version"
       (query-version board)
       (wait-for-it (fn []
-        (is (= 0xF9 (last-write client))))))
+        (is (= [0xF9] (last-write client))))))
 
     (testing "query firmware"
       (query-firmware board)

@@ -36,7 +36,8 @@
       (handler (create-in-stream 0xF0 0x79 9 9 "Test Firmware" 0xF7))
       nil)
     
-    (write [_ data] (reset! last-write data)))
+    (write [_ data] 
+      (reset! last-write data)))
 
 (defn create-mock-stream []
     (->MockClientStream (atom {}) (atom nil)))
@@ -48,7 +49,7 @@
   ((state client :handler) (apply create-in-stream more)))
 
 (defn last-write [client]
-  (-> client :last-write deref flatten vec))
+  (-> client :last-write deref vector flatten vec))
 
 (defn is-open? [client]
   (state client :is-open?))
