@@ -4,7 +4,7 @@
                    :refer (is deftest with-test run-tests testing)]
             #+cljs
             [cemerick.cljs.test :as t]
-            [firmata.test.async-helpers :refer [get-event]]
+            [firmata.test.async-helpers :refer [get-event wait-for-it]]
             [firmata.test.mock-stream :refer [create-mock-stream receive-bytes is-open? last-write]]
             [firmata.core :refer [open-board event-channel reset-board! 
                                   version close! firmware query-firmware query-capabilities
@@ -139,7 +139,7 @@
         (is (= :unknown-sysex (:type event)))
         (is (= [0x68] (:value event))))))
 
-  ))
+ ))
 
 (deftest test-read-events-alternate-from-raw
 
@@ -163,7 +163,7 @@
         (is (= :foo (:value event)))
         (is (= 1 (:raw-value event))))))
 
-        ))
+       ))
 
 (deftest test-write
   (let [client (create-mock-stream)
@@ -171,134 +171,161 @@
 
     (testing "reset board"
       (reset-board! board)
-      (is (= 0xFF (last-write client))))
+      (wait-for-it (fn []
+        (is (= 0xFF (last-write client))))))
 
     (testing "query protocol version"
       (query-version board)
-      (is (= 0xF9 (last-write client))))
+      (wait-for-it (fn []
+        (is (= 0xF9 (last-write client))))))
 
     (testing "query firmware"
       (query-firmware board)
-      (is (= [0xF0 0x79 0xF7] (last-write client))))
+      (wait-for-it (fn []
+        (is (= [0xF0 0x79 0xF7] (last-write client))))))
 
     (testing "query capabilities"
       (query-capabilities board)
-      (is (= [0xF0 0x6B 0xF7] (last-write client))))
+      (wait-for-it (fn []
+        (is (= [0xF0 0x6B 0xF7] (last-write client))))))
 
     (testing "pin state query"
       (query-pin-state board 0)
-      (is (= [0xF0 0x6D 0 0xF7] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0xF0 0x6D 0 0xF7] (last-write client)))))
 
-      (is (thrown? AssertionError (query-pin-state board "foo")))
-      (is (thrown? AssertionError (query-pin-state board -1)))
-      (is (thrown? AssertionError (query-pin-state board 128))))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (query-pin-state board "foo")))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (query-pin-state board -1)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (query-pin-state board 128))))
 
     (testing "query analog mappings"
       (query-analog-mappings board)
-      (is (= [0xF0 0x69 0xF7] (last-write client))))
+      (wait-for-it (fn []
+        (is (= [0xF0 0x69 0xF7] (last-write client))))))
 
     (testing "set pin mode"
       (set-pin-mode board 4 :input)
-      (is (= [0xF4 4 0] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0xF4 4 0] (last-write client)))))
 
       (set-pin-mode board 3 :output)
-      (is (= [0xF4 3 1] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0xF4 3 1] (last-write client)))))
 
       (set-pin-mode board 16 :analog)
-      (is (= [0xF4 16 2] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0xF4 16 2] (last-write client)))))
 
       (set-pin-mode board 13 :pwm)
-      (is (= [0xF4 13 3] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0xF4 13 3] (last-write client)))))
 
       (set-pin-mode board 28 :servo)
-      (is (= [0xF4 28 4] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0xF4 28 4] (last-write client)))))
 
-      (is (thrown? AssertionError (set-pin-mode board 1 :foo)))
-      (is (thrown? AssertionError (set-pin-mode board "foo" :input)))
-      (is (thrown? AssertionError (set-pin-mode board -1 :input)))
-      (is (thrown? AssertionError (set-pin-mode board 128 :input))))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-pin-mode board 1 :foo)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-pin-mode board "foo" :input)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-pin-mode board -1 :input)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-pin-mode board 128 :input))))
 
     (testing "toggle analog in"
       (enable-analog-in-reporting board 1 true)
-      (is (= [0xC1 1] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0xC1 1] (last-write client)))))
 
       (enable-analog-in-reporting board 2 false)
-      (is (= [0xC2 0] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0xC2 0] (last-write client)))))
 
-      (is (thrown? AssertionError (enable-analog-in-reporting board -1 true)))
-      (is (thrown? AssertionError (enable-analog-in-reporting board 16 true))))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (enable-analog-in-reporting board -1 true)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (enable-analog-in-reporting board 16 true))))
 
     (testing "toggle digital port reporting"
       (enable-digital-port-reporting board 1 true)
-      (is (= [0xD0 1] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0xD0 1] (last-write client)))))
 
       (enable-digital-port-reporting board 15 false)
-      (is (= [0xD1 0] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0xD1 0] (last-write client)))))
 
-      (is (thrown? AssertionError (enable-digital-port-reporting board -1 true)))
-      (is (thrown? AssertionError (enable-digital-port-reporting board 16 false))))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (enable-digital-port-reporting board -1 true)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (enable-digital-port-reporting board 16 false))))
 
     (testing "set digital value: Keyword"
       (set-digital board 1 :high)
-      (is (= [0x90 0x2 0x0] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0x90 0x2 0x0] (last-write client)))))
 
       (set-digital board 0 :high)
-      (is (= [0x90 0x3 0x0] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0x90 0x3 0x0] (last-write client)))))
 
       (set-digital board 15 :low)
-      (is (= [0x91 0x0 0x0] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0x91 0x0 0x0] (last-write client)))))
 
-      (is (thrown? AssertionError (set-digital board 1 :foo)))
-      (is (thrown? AssertionError (set-digital board -1 :high)))
-      (is (thrown? AssertionError (set-digital board 16 :low))))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 1 :foo)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board -1 :high)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 16 :low))))
 
     (testing "set digital value: Symbol"
       (set-digital board 0 'low)
-      (is (= [0x90 0x2 0x0] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0x90 0x2 0x0] (last-write client)))))
 
       (set-digital board 0 'high)
-      (is (= [0x90 0x3 0x0] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0x90 0x3 0x0] (last-write client)))))
 
-      (is (thrown? AssertionError (set-digital board 1 'foo)))
-      (is (thrown? AssertionError (set-digital board -1 :high)))
-      (is (thrown? AssertionError (set-digital board 16 :low))))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 1 'foo)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board -1 :high)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 16 :low))))
 
     (testing "set digital value: char"
       (set-digital board 0 \0)
-      (is (= [0x90 0x2 0x0] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0x90 0x2 0x0] (last-write client)))))
 
       (set-digital board 0 \1)
-      (is (= [0x90 0x3 0x0] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0x90 0x3 0x0] (last-write client)))))
 
-      (is (thrown? AssertionError (set-digital board 1 \f)))
-      (is (thrown? AssertionError (set-digital board -1 :high)))
-      (is (thrown? AssertionError (set-digital board 16 :low))))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 1 \f)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board -1 :high)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 16 :low))))
 
     (testing "set digital value: literal"
       (set-digital board 0 0)
-      (is (= [0x90 0x2 0x0] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0x90 0x2 0x0] (last-write client)))))
 
       (set-digital board 0 1)
-      (is (= [0x90 0x3 0x0] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0x90 0x3 0x0] (last-write client)))))
 
-      (is (thrown? AssertionError (set-digital board 1 23)))
-      (is (thrown? AssertionError (set-digital board -1 :high)))
-      (is (thrown? AssertionError (set-digital board 16 :low))))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 1 23)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board -1 :high)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 16 :low))))
 
     (testing "set analog value"
       (set-analog board 4 1000)
-      (is (= [0xE4 0x68 0x7] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0xE4 0x68 0x7] (last-write client)))))
 
       (set-analog board 16 1000)
-      (is (= [0xF0 0x6F 16 0x68 0x7 0xF7] (last-write client)))
+      (wait-for-it (fn []
+        (is (= [0xF0 0x6F 16 0x68 0x7 0xF7] (last-write client)))))
 
-      (is (thrown? AssertionError (set-analog board -1 1000)))
-      (is (thrown? AssertionError (set-analog board 128 1000))))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-analog board -1 1000)))
+      (is (thrown? #+clj AssertionError #+cljs js/Error (set-analog board 128 1000))))
 
     (testing "set sampling interval"
       (set-sampling-interval board 1000)
-      (is (= [0xF0 0x7A 0x68 0x7 0xF7] (last-write client))))
-  ))
+      (wait-for-it (fn []
+        (is (= [0xF0 0x7A 0x68 0x7 0xF7] (last-write client))))))
+ ))
 
 (deftest test-board-close
   (let [client (create-mock-stream)

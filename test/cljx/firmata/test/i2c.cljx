@@ -4,7 +4,7 @@
                    :refer (is deftest with-test run-tests testing)]
             #+cljs
             [cemerick.cljs.test :as t]
-            [firmata.test.async-helpers :refer [get-event]]
+            [firmata.test.async-helpers :refer [get-event wait-for-it]]
             [firmata.test.mock-stream :as mock]
             [firmata.core :refer [open-board event-channel]]
             [firmata.i2c :refer [send-i2c-request send-i2c-config]])
@@ -38,26 +38,32 @@
 
     (testing "ic2 request: write"
       (send-i2c-request board 6 :write 0xF 0xE 0xD)
-      (is (= [0xF0 0x76 6 0 0xF 0x0 0xE 0 0xD 0x0 0xF7] (mock/last-write client))))
+      (wait-for-it (fn []
+        (is (= [0xF0 0x76 6 0 0xF 0x0 0xE 0 0xD 0x0 0xF7] (mock/last-write client))))))
 
     (testing "ic2 request: read-once"
       (send-i2c-request board 6 :read-once 1000)
-      (is (= [0xF0 0x76 6 2r0000100 0x68 0x7 0xF7] (mock/last-write client))))
+      (wait-for-it (fn []
+        (is (= [0xF0 0x76 6 2r0000100 0x68 0x7 0xF7] (mock/last-write client))))))
 
     (testing "ic2 request: read-continuously"
       (send-i2c-request board 7 :read-continuously)
-      (is (= [0xF0 0x76 7 2r1000 0xF7] (mock/last-write client))))
+      (wait-for-it (fn []
+        (is (= [0xF0 0x76 7 2r1000 0xF7] (mock/last-write client))))))
 
     (testing "ic2 request: stop-reading"
       (send-i2c-request board 7 :stop-reading)
-      (is (= [0xF0 0x76 7 2r1100 0xF7] (mock/last-write client))))
+      (wait-for-it (fn []
+        (is (= [0xF0 0x76 7 2r1100 0xF7] (mock/last-write client))))))
 
     (testing "ic2 config: delay"
       (send-i2c-config board 1000)
-      (is (= [0xF0 0x78 0x68 0x7 0xF7] (mock/last-write client))))
+      (wait-for-it (fn []
+        (is (= [0xF0 0x78 0x68 0x7 0xF7] (mock/last-write client))))))
 
     (testing "ic2 config: delay and user data"
       (send-i2c-config board 1000 0x10)
-      (is (= [0xF0 0x78 0x68 0x7 0x10 0xF7] (mock/last-write client))))
+      (wait-for-it (fn []
+        (is (= [0xF0 0x78 0x68 0x7 0x10 0xF7] (mock/last-write client))))))
 
   ))

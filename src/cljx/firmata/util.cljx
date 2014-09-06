@@ -1,5 +1,5 @@
 (ns firmata.util
-  (:require [serial.core :refer [port-ids]]))
+  #+clj (:require [serial.core :refer [port-ids]]))
 
 ; Number conversions
 
@@ -69,6 +69,7 @@
     (substring? "tty.usbmodem" port-name)    ;; Uno or Mega 2560
     (substring? "tty.usbserial" port-name))) ;; Older boards
 
+#+clj
 (defn detect-arduino-port
   "Returns the first arduino serial port based on port
    name, or nil. Currently only works for Mac."

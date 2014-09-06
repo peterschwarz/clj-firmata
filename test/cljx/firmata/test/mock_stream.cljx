@@ -20,7 +20,7 @@
     (reduce (fn [^ByteBuffer b ^bytes value] (.put b (to-bytes value))) buffer more)
     (ByteArrayInputStream. (.array buffer))))
 
-(defrecord MockClientStream [state]
+(defrecord MockClientStream [state last-write]
     FirmataStream
     (open! [this] 
       (swap! state  assoc :is-open? true)
@@ -36,10 +36,10 @@
       (handler (create-in-stream 0xF0 0x79 9 9 "Test Firmware" 0xF7))
       nil)
     
-    (write [_ data] (swap! state  assoc :last-write data)))
+    (write [_ data] (reset! last-write data)))
 
 (defn create-mock-stream []
-    (->MockClientStream (atom {})))
+    (->MockClientStream (atom {}) (atom nil)))
 
 (defn- state [client k]
   (get (deref (:state client)) k))
@@ -48,9 +48,7 @@
   ((state client :handler) (apply create-in-stream more)))
 
 (defn last-write [client]
-  #+clj 
-  (Thread/sleep 100)
-  (vec (flatten (state client :last-write))))
+  (-> client :last-write deref flatten vec))
 
 (defn is-open? [client]
   (state client :is-open?))

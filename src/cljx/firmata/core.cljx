@@ -9,7 +9,7 @@
             #+cljs
             [cljs.core.async    :as a :refer [chan >! <!]])
   #+cljs
-  (:require-macros [cljs.core.async.macros :refer [go alt!]]))
+  (:require-macros [cljs.core.async.macros :refer [go]]))
 
 ; Message Types
 
