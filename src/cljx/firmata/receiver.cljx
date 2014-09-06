@@ -55,6 +55,10 @@
     (on-channel-event filtered-ch event-handler)
     (unsub-handler board filtered-ch topic)))
 
+(def ^:private MAX_VAL 
+  #+clj Integer/MAX_VALUE
+  #+cljs 9223372036854775807)
+
 (defn on-analog-event
   "Create a receiver for analog events on a given pin. `event-handler` takes should take one argument: event."
   ([board analog-pin event-handler] (on-analog-event board analog-pin event-handler 5))
@@ -64,7 +68,7 @@
     (on-channel-event-with-prev
      filtered-ch
      (fn [event prev]
-       (when (< delta (Math/abs (- (:value prev Integer/MAX_VALUE) (:value event))))
+       (when (< delta (Math/abs (- (:value prev MAX_VAL) (:value event))))
          (event-handler event))))
     (unsub-handler board filtered-ch topic))))
 

@@ -22,7 +22,7 @@
 
 (defn lowest-set-bit [x]
   #+clj  (int (max 0 (/ (Math/log (bit-and x (- x))) (Math/log 2))))
-  #+cljs (/ (.log js/Math (bit-and pin-change (- pin-change))) (aget js/Math "LN2")))
+  #+cljs (max 0 (/ (.log js/Math (bit-and x (- x))) (aget js/Math "LN2"))))
 
 (defn consume-until
   "Consumes bytes from the given input stream until the end-signal is reached."

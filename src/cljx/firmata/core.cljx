@@ -312,8 +312,9 @@
   "Opens a connection to a board over a given FirmataStream.
   The buffer size for the events may be set with the option :event-buffer size
   (default value 1024)."
-  [stream & {:keys [event-buffer-size from-raw-digital warmup-time]
-                :or {event-buffer-size 1024 from-raw-digital to-keyword warmup-time 5000}}]
+  [stream #+cljs on-ready
+    & {:keys [event-buffer-size from-raw-digital warmup-time]
+       :or {event-buffer-size 1024 from-raw-digital to-keyword warmup-time 5000}}]
   (assert from-raw-digital ":from-raw-digital may not be nil")
   (let [board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
                            :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})
@@ -343,16 +344,20 @@
     ; This can be replaced with 
     ; (take! result-ch callback)
     ; for clojurescript
-    (<!! result-ch)))
+    #+clj (<!! result-ch)
+    #+cljs (a/take! result-ch on-ready)
+    ))
 
 (defn open-serial-board
   "Opens a connection to a board at a given port name.
   The baud rate may be set with the option :baud-rate (default value 57600).
   The buffer size for the events may be set with the option :event-buffer size
   (default value 1024)."
-  [port-name & {:keys [baud-rate event-buffer-size from-raw-digital]
-                :or {baud-rate 57600 event-buffer-size 1024 from-raw-digital to-keyword}}]
+  [port-name #+cljs on-ready
+   & {:keys [baud-rate event-buffer-size from-raw-digital]
+      :or {baud-rate 57600 event-buffer-size 1024 from-raw-digital to-keyword}}]
   (open-board (st/create-serial-stream port-name baud-rate) 
+              #+cljs on-ready
               :event-buffer-size event-buffer-size
               :from-raw-digital from-raw-digital))
 
@@ -360,9 +365,11 @@
   "Opens a connection to a board at a host and port.
   The buffer size for the events may be set with the option :event-buffer size
   (default value 1024)."
-  [host port & {:keys [event-buffer-size from-raw-digital]
-                :or {event-buffer-size 1024 from-raw-digital to-keyword}}]
+  [host port #+cljs on-ready
+   & {:keys [event-buffer-size from-raw-digital]
+      :or {event-buffer-size 1024 from-raw-digital to-keyword}}]
     (open-board (st/create-socket-client-stream host port) 
+                #+cljs on-ready
                 :warmup-time 0
                 :event-buffer-size event-buffer-size
                 :from-raw-digital from-raw-digital))
