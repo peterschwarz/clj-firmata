@@ -13,7 +13,7 @@
   (:require-macros [cemerick.cljs.test
                        :refer (is deftest with-test run-tests testing test-var)]))
 
-(deftest test-read-i2c-events
+(deftest ^:async test-read-i2c-events
 
   (let [client   (mock/create-mock-stream)]
     (with-open-board client (fn [board]
@@ -33,7 +33,7 @@
           (is (= [1000 1] (:data event))))))
     )))))
 
-(deftest test-i2c-messages
+(deftest ^:async test-i2c-messages
   (let [client (mock/create-mock-stream)]
     (with-open-board client (fn [board]
 

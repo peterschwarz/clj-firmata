@@ -19,7 +19,7 @@
                        :refer (is deftest with-test run-tests testing test-var)]))
 
 
-(deftest test-read-events
+(deftest ^:async test-read-events
   (let [client (create-mock-stream)]
     (with-open-board client (fn [board]
       (let [evt-chan (event-channel board)]
@@ -144,7 +144,7 @@
 
  )))))
 
-(deftest test-read-events-alternate-from-raw
+(deftest ^:async test-read-events-alternate-from-raw
 
   (let [client (create-mock-stream)]
     (with-open-board client [:from-raw-digital #(if (= 1 %) :foo :bar)] (fn [board]
@@ -167,7 +167,7 @@
 
        )))))
 
-(deftest test-write
+(deftest ^:async test-write
   (let [client (create-mock-stream)]
     (with-open-board client (fn [board]
 

@@ -37,7 +37,7 @@
       (event-publisher [this] p)
       (release-event-channel [this ch] (a/untap mult-ch ch)))))
 
-(deftest receive-event
+(deftest ^:async receive-event
   (let [channel (make-chan)
         result (atom nil)
         board (mock-board channel)
@@ -49,7 +49,7 @@
 
     (a/close! channel)))
 
-(deftest stop-receiver
+(deftest ^:async stop-receiver
   (let [channel (make-chan)
         result (atom nil)
         board (mock-board channel)
@@ -60,7 +60,7 @@
     (is (nil? @result))
     (a/close! channel)))
 
-(deftest analog-receiver
+(deftest ^:async analog-receiver
 
   (testing "Only analog events"
 
@@ -100,7 +100,7 @@
 
   )
 
-(deftest digital-receiver
+(deftest ^:async digital-receiver
   (testing "Only digital events"
     (let [channel (make-chan)
           result (atom nil)
