@@ -143,7 +143,7 @@
   [board]
   (fn [in]
     (let [event (read-event board in)]
-      (a/go (>! (:channel board) event)))))
+      (go (>! (:channel board) event)))))
 
 (defn- pin?
   ([pin] (pin? pin 128))

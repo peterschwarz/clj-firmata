@@ -1,6 +1,7 @@
 (ns firmata.i2c
   (:require [firmata.core :refer [send-message]]
             [firmata.util :refer [msb lsb bytes-to-int]]
+            [firmata.stream :refer [read!]]
             [firmata.sysex :refer [read-sysex-event
                                    read-two-byte-data
                                    SYSEX_START SYSEX_END]]))
@@ -18,8 +19,8 @@
 
 (defmethod read-sysex-event I2C_REPLY
   [in]
-  (let [slave-address (bytes-to-int (.read in) (.read in))
-        register (bytes-to-int (.read in) (.read in))
+  (let [slave-address (bytes-to-int (read! in) (read! in))
+        register (bytes-to-int (read! in) (read! in))
         data (read-two-byte-data in)]
     {:type :i2c-reply
      :slave-address slave-address

@@ -22,6 +22,20 @@
   
   (read! [this] (.read this)))
 
+#+cljs
+(extend-type js/Buffer
+
+  ByteReader
+
+  (read! [this]
+    (if (not (aget this "__current-index"))
+      (aset this "__current-index" 0))
+
+    (let [current-index (aget this "__current-index")
+          value (if (< current-index (.-length this)) (.readUInt8 this current-index) -1)
+          _ (aset this "__current-index" (inc current-index))]
+      value)))
+
 (defprotocol FirmataStream
   "A FirmataStream provides methods for creating connections, writing
   values to and listening for events on a Firmata-enabled device."
@@ -55,7 +69,9 @@
       (serial/listen serial-port handler false))))
 
 #+cljs
-(defrecord SerialStream [port-name baud-rate])
+(defrecord SerialStream [port-name baud-rate]
+  ; TODO: Implement in cljs
+  )
 
 (defn create-serial-stream [port-name baud-rate]
   (SerialStream. port-name baud-rate))
@@ -109,7 +125,9 @@
           (<! (timeout 19)))))))
 
 #+cljs
-(defrecord SocketClientStream [host port])
+(defrecord SocketClientStream [host port]
+  ; TODO: Implement in cljs
+  )
 
 (defn create-socket-client-stream [host port]
   (SocketClientStream. host port))

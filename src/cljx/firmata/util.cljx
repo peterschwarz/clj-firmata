@@ -1,5 +1,6 @@
 (ns firmata.util
-  #+clj (:require [serial.core :refer [port-ids]]))
+  (:require [firmata.stream :refer [read!]]
+            #+clj [serial.core :refer [port-ids]]))
 
 ; Number conversions
 
@@ -27,11 +28,11 @@
 (defn consume-until
   "Consumes bytes from the given input stream until the end-signal is reached."
   [end-signal in initial accumulator]
-  (loop [current-value (.read in)
+  (loop [current-value (read! in)
          result initial]
     (if (= end-signal current-value)
       result
-      (recur (.read in)
+      (recur (read! in)
              (accumulator result current-value)))))
 
 (defn arduino-map

@@ -1,5 +1,6 @@
 (ns firmata.sysex
-    (:require [firmata.util :as util]))
+    (:require [firmata.util :as util]
+              [firmata.stream :refer [read!]]))
 
 ; SysEx messages
 
@@ -37,7 +38,7 @@
   "Reads the capabilities response from the input stream"
   [in]
   (loop [result {}
-         current-value (.read in)
+         current-value (read! in)
          pin 0]
     (if (= SYSEX_END current-value)
       result
@@ -46,31 +47,31 @@
                       pin-mode current-value]
                  (if (= 0x7F pin-mode)
                    pin-modes
-                   (recur (assoc pin-modes (get modes pin-mode :future-mode) (.read in))
-                          (.read in))
+                   (recur (assoc pin-modes (get modes pin-mode :future-mode) (read! in))
+                          (read! in))
                    )))
-             (.read in)
+             (read! in)
              (inc pin)))))
 
 (defn read-two-byte-data
   "Consumes the value of a SysEx message as an list of short values."
   [in]
   (loop [result []
-         current-byte (.read in)]
+         current-byte (read! in)]
     (if (= SYSEX_END current-byte )
       result
-      (recur (conj result (util/bytes-to-int current-byte (.read in)))
-             (.read in)))))
+      (recur (conj result (util/bytes-to-int current-byte (read! in)))
+             (read! in)))))
 
 (defn- read-analog-mappings
   [in]
   (loop [result {}
-         current-byte (.read in)
+         current-byte (read! in)
          pin 0]
     (if (= SYSEX_END current-byte)
       result
       (recur (if-not (= current-byte 0x7F) (assoc result current-byte pin) result)
-             (.read in)
+             (read! in)
              (inc pin)))))
 
 (defmulti read-sysex-event
@@ -84,11 +85,11 @@
        { :type :firmaware-report
          :version \"2.3\"
          :name \"StandardFirmata\" }"
-  (fn [in] (.read in)))
+  (fn [in] (read! in)))
 
 (defmethod read-sysex-event REPORT_FIRMWARE
   [in]
-  (let [version (str (.read in) "." (.read in))
+  (let [version (str (read! in) "." (read! in))
         name (consume-sysex in "" #(str %1 (char %2)))]
     {:type :firmware-report
      :version version
@@ -102,8 +103,8 @@
 
 (defmethod read-sysex-event PIN_STATE_RESPONSE
   [in]
-  (let [pin (.read in)
-        mode (get modes (.read in) :future-mode)
+  (let [pin (read! in)
+        mode (get modes (read! in) :future-mode)
         value (util/to-number (consume-sysex in '() #(conj %1 (byte %2))))]
     {:type :pin-state
      :pin pin
