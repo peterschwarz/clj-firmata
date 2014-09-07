@@ -4,6 +4,8 @@
                    :refer (is deftest with-test run-tests testing)]
             #+cljs
             [cemerick.cljs.test :as t]
+            #+cljs
+            [cljs.nodejs :as nodejs]
             [firmata.test.async-helpers :refer [get-event wait-for-it]]
             [firmata.test.mock-stream :refer [create-mock-stream receive-bytes is-open? last-write]]
             [firmata.test.board-helpers :refer [with-open-board]]
@@ -334,3 +336,9 @@
       (close! board)
 
       (is (not (is-open? client)))))))
+
+
+#+cljs 
+(do 
+  (nodejs/enable-util-print!)
+  (set! *main-cli-fn* #(println "Running tests...")))
