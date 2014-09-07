@@ -22,7 +22,10 @@
                                  :exclusions [org.clojure/clojure]]
                              [lein-cloverage "1.0.2"]
                              [lein-cljsbuild "1.0.3"]
-                             [com.cemerick/clojurescript.test "0.3.1"]]}}
+                             [com.cemerick/clojurescript.test "0.3.1"]]
+                   :aliases {"cleantest" ["do" "clean," "cljx" "once," "test,"
+                                          "cljsbuild" "test"]
+                             "deploy" ["do" "clean," "cljx" "once," "deploy" "clojars"]}}}
 
   :hooks [cljx.hooks]
 
