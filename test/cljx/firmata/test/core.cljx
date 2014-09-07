@@ -6,6 +6,7 @@
             [cemerick.cljs.test :as t]
             [firmata.test.async-helpers :refer [get-event wait-for-it]]
             [firmata.test.mock-stream :refer [create-mock-stream receive-bytes is-open? last-write]]
+            [firmata.test.board-helpers :refer [with-open-board]]
             [firmata.core :refer [open-board event-channel reset-board! 
                                   version close! firmware query-firmware query-capabilities
                                   query-version query-analog-mappings query-pin-state
@@ -17,9 +18,9 @@
 
 
 (deftest test-read-events
-  (let [client (create-mock-stream)
-        board    (open-board client)
-        evt-chan (event-channel board)]
+  (let [client (create-mock-stream)]
+    (with-open-board client (fn [board]
+      (let [evt-chan (event-channel board)]
 
     (testing "board version initialized with board handshake messages"
       (is (= "9.9" (version board))))
@@ -139,14 +140,13 @@
         (is (= :unknown-sysex (:type event)))
         (is (= [0x68] (:value event))))))
 
- ))
+ )))))
 
 (deftest test-read-events-alternate-from-raw
 
-  (let [client (create-mock-stream)
-        board    (open-board client
-                    :from-raw-digital #(if (= 1 %) :foo :bar))
-        evt-chan (event-channel board)]
+  (let [client (create-mock-stream)]
+    (with-open-board client [:from-raw-digital #(if (= 1 %) :foo :bar)] (fn [board]
+      (let [evt-chan (event-channel board)]
 
     (testing "read digital message: low boundary"
       (receive-bytes client 0x90 0 0)
@@ -163,11 +163,11 @@
         (is (= :foo (:value event)))
         (is (= 1 (:raw-value event))))))
 
-       ))
+       )))))
 
 (deftest test-write
-  (let [client (create-mock-stream)
-        board (open-board client)]
+  (let [client (create-mock-stream)]
+    (with-open-board client (fn [board]
 
     (testing "reset board"
       (reset-board! board)
@@ -325,12 +325,12 @@
       (set-sampling-interval board 1000)
       (wait-for-it (fn []
         (is (= [0xF0 0x7A 0x68 0x7 0xF7] (last-write client))))))
- ))
+ ))))
 
 (deftest test-board-close
-  (let [client (create-mock-stream)
-        board (open-board client)]
+  (let [client (create-mock-stream)]
+    (with-open-board client (fn [board]
 
-    (close! board)
+      (close! board)
 
-    (is (not (is-open? client)))))
+      (is (not (is-open? client)))))))

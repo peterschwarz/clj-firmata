@@ -6,7 +6,8 @@
             [cemerick.cljs.test :as t]
             [firmata.test.async-helpers :refer [get-event wait-for-it]]
             [firmata.test.mock-stream :as mock]
-            [firmata.core :refer [open-board event-channel]]
+            [firmata.test.board-helpers :refer [with-open-board]]
+            [firmata.core :refer [event-channel]]
             [firmata.i2c :refer [send-i2c-request send-i2c-config]])
   #+cljs 
   (:require-macros [cemerick.cljs.test
@@ -14,9 +15,9 @@
 
 (deftest test-read-i2c-events
 
-  (let [client   (mock/create-mock-stream)
-        board    (open-board client)
-        evt-chan (event-channel board)]
+  (let [client   (mock/create-mock-stream)]
+    (with-open-board client (fn [board]
+      (let [evt-chan (event-channel board)]
 
     (testing "read i2c-reply"
       (mock/receive-bytes client 0xF0 0x77
@@ -30,11 +31,11 @@
           (is (= 0x0A (:slave-address event)))
           (is (= 0x84 (:register event)))
           (is (= [1000 1] (:data event))))))
-    ))
+    )))))
 
 (deftest test-i2c-messages
-  (let [client (mock/create-mock-stream)
-        board (open-board client)]
+  (let [client (mock/create-mock-stream)]
+    (with-open-board client (fn [board]
 
     (testing "ic2 request: write"
       (send-i2c-request board 6 :write 0xF 0xE 0xD)
@@ -66,4 +67,4 @@
       (wait-for-it (fn []
         (is (= [0xF0 0x78 0x68 0x7 0x10 0xF7] (mock/last-write client))))))
 
-  ))
+  ))))
