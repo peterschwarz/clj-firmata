@@ -4,7 +4,9 @@
             [clojure.core.async :as a :refer [go <! timeout]])
   #+cljs
   (:require [cljs.nodejs :as nodejs]
-            [cljs.core.async    :as a :refer  [<! timeout]])
+            [cljs.core.async    :as a :refer  [<! timeout]]
+            [firmata.messages :refer [SYSEX_START SYSEX_END PROTOCOL_VERSION
+                                      is-digital? is-analog?]])
   #+clj
   (:import [java.net InetSocketAddress Socket]
            [java.io InputStream])
@@ -69,9 +71,51 @@
       (serial/listen serial-port handler false))))
 
 #+cljs
+(def ^:private SerialPort (.-SerialPort (nodejs/require "serialport")))
+
+#+cljs
+(defn- concat-buffers [b1 b2]
+  (.-concat js/Buffer) (object-array b1 b2))
+
+#+cljs
+(defn- create-parser [] 
+  (let [buffer (atom (js/Buffer 0))]
+    (fn [emmitter data]
+      (reset! buffer (concat-buffers @buffer data))
+      (let [first-byte (aget @buffer 0)
+            last-byte (aget @buffer (-> @buffer count dec))
+            emit-and-clear (fn [] 
+                            (.emit emmitter "data" @buffer)
+                            (reset! buffer (js/Buffer 0)))]
+        (cond 
+          (and (= SYSEX_START first-byte) (= SYSEX_END last-byte)) 
+            (emit-and-clear) 
+          (or (= PROTOCOL_VERSION first-byte) (is-digital? first-byte) (is-analog? first-byte))
+            (emit-and-clear))))))
+
+#+cljs
 (defrecord SerialStream [port-name baud-rate]
-  ; TODO: Implement in cljs
-  )
+   FirmataStream
+
+  (open! [this]
+    (let [serial-port (SerialPort. 
+                        (:port-name this) 
+                        #js {:baudrate (:baud-rate this)
+                             :parser (create-parser)})]
+      (assoc this :serial-port serial-port)))
+
+  (close! [this]
+    (when-let [serial-port (:serial-port this)]
+      (.close serial-port)
+      (dissoc this :serial-port)))
+
+  (listen [this handler]
+    (when-let [serial-port (:serial-port this)]
+      (.on serial-port "data" handler)))
+
+  (write [this data]
+    (when-let [serial-port (:serial-port this)]
+      (.write serial-port data))))
 
 (defn create-serial-stream [port-name baud-rate]
   (SerialStream. port-name baud-rate))

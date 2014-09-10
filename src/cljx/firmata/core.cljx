@@ -1,6 +1,7 @@
 (ns firmata.core
-  (:require [firmata.stream :as st]
-            [firmata.sysex :as sysex]
+  (:require [firmata.messages :as m]
+            [firmata.stream :as st]
+            [firmata.sysex :refer [read-sysex-event]]
             [firmata.util :as util :refer [lsb msb]]
 
             #+clj 
@@ -11,19 +12,8 @@
   #+cljs
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
-; Message Types
-
-(def ^{:private true} ANALOG_IO_MESSAGE   0xE0)
-(def ^{:private true} DIGITAL_IO_MESSAGE  0x90)
-(def ^{:private true} REPORT_ANALOG_PIN   0xC0)
-(def ^{:private true} REPORT_DIGITAL_PORT 0xD0)
-
-(def ^{:private true} SET_PIN_IO_MODE     0xF4)
-(def ^{:private true} PROTOCOL_VERSION    0xF9)
-(def ^{:private true} SYSTEM_RESET        0xFF)
-
 ; Pin Modes
-(def ^{:private true} mode-values (zipmap sysex/modes (range 0 (count sysex/modes))))
+(def ^{:private true} mode-values (zipmap m/modes (range 0 (count m/modes))))
 
 (def ^{:private true} MAX-PORTS 16)
 
@@ -105,7 +95,7 @@
 
 (defn- read-analog
   [message in]
-  (let [pin (- message ANALOG_IO_MESSAGE)
+  (let [pin (- message m/ANALOG_IO_MESSAGE)
         value (util/bytes-to-int (st/read! in) (st/read! in))]
     {:type :analog-msg
      :pin pin
@@ -113,7 +103,7 @@
 
 (defn- read-digital
   [board message in]
-  (let [port (- message DIGITAL_IO_MESSAGE)
+  (let [port (- message m/DIGITAL_IO_MESSAGE)
         previous-port (get-in @(:state board)[:digital-in port])
         updated-port (util/bytes-to-int (st/read! in) (st/read! in))
         pin-change (- updated-port previous-port)
@@ -130,11 +120,11 @@
   [board in]
   (let [message (st/read! in)]
     (cond
-     (= PROTOCOL_VERSION message) (let [version (read-version in)]
+     (= m/PROTOCOL_VERSION message) (let [version (read-version in)]
                                     {:type :protocol-version, :version version})
-     (= sysex/SYSEX_START message) (sysex/read-sysex-event in)
-     (<= 0x90 message 0x9F) (read-digital board message in)
-     (<= 0xE0 message 0xEF) (read-analog message in)
+     (= m/SYSEX_START message) (read-sysex-event in)
+     (m/is-digital? message) (read-digital board message in)
+     (m/is-analog? message)  (read-analog message in)
 
      :else {:type :unknown-msg
             :value message})))
@@ -200,7 +190,7 @@
 
   (reset-board!
     [this]
-    (send-message this SYSTEM_RESET))
+    (send-message this m/SYSTEM_RESET))
 
   (version
    [this]
@@ -212,40 +202,40 @@
 
   (query-firmware
    [this]
-   (send-message this [sysex/SYSEX_START sysex/REPORT_FIRMWARE sysex/SYSEX_END]))
+   (send-message this [m/SYSEX_START m/REPORT_FIRMWARE m/SYSEX_END]))
 
   (query-capabilities
    [this]
-   (send-message this [sysex/SYSEX_START sysex/CAPABILITY_QUERY sysex/SYSEX_END]))
+   (send-message this [m/SYSEX_START m/CAPABILITY_QUERY m/SYSEX_END]))
 
   (query-version
    [this]
-   (send-message this PROTOCOL_VERSION))
+   (send-message this m/PROTOCOL_VERSION))
 
   (query-analog-mappings
    [this]
-   (send-message this [sysex/SYSEX_START sysex/ANALOG_MAPPING_QUERY sysex/SYSEX_END]))
+   (send-message this [m/SYSEX_START m/ANALOG_MAPPING_QUERY m/SYSEX_END]))
 
   (query-pin-state
    [this pin]
    (assert (pin? pin) "must supply a valid pin value 0-127")
-   (send-message this [sysex/SYSEX_START sysex/PIN_STATE_QUERY pin sysex/SYSEX_END]))
+   (send-message this [m/SYSEX_START m/PIN_STATE_QUERY pin m/SYSEX_END]))
 
   (set-pin-mode
    [this pin mode]
    (assert (pin? pin) "must supply a valid pin value 0-127")
-   (assert (mode mode-values) (str "must supply a valid mode: " (clojure.string/join ", " sysex/modes)))
-   (send-message this [SET_PIN_IO_MODE pin (mode mode-values)]))
+   (assert (mode mode-values) (str "must supply a valid mode: " (clojure.string/join ", " m/modes)))
+   (send-message this [m/SET_PIN_IO_MODE pin (mode mode-values)]))
 
   (enable-analog-in-reporting
    [this pin enabled?]
    (assert (pin? pin 16) "must supply a valid pin value 0-15")
-   (enable-reporting this REPORT_ANALOG_PIN pin enabled?))
+   (enable-reporting this m/REPORT_ANALOG_PIN pin enabled?))
 
   (enable-digital-port-reporting
    [this pin enabled?]
    (assert (pin? pin 16) "must supply a valid pin value 0-15")
-   (enable-reporting this REPORT_DIGITAL_PORT (port-of pin) enabled?))
+   (enable-reporting this m/REPORT_DIGITAL_PORT (port-of pin) enabled?))
 
   (set-digital
    [this pin value]
@@ -258,19 +248,19 @@
                      (bit-or current-port pin-value)
                      (bit-and current-port (bit-not pin-value)))]
      (swap! board-state assoc-in [:digital-out port] next-port)
-     (send-message this [(pin-command DIGITAL_IO_MESSAGE port) (lsb next-port) (msb next-port)])))
+     (send-message this [(pin-command m/DIGITAL_IO_MESSAGE port) (lsb next-port) (msb next-port)])))
 
   (set-analog
    [this pin value]
    (assert (pin? pin) "must supply a valid pin value 0-127")
    (send-message this
         (if (> pin 15)
-          [sysex/SYSEX_START sysex/EXTENDED_ANALOG pin (lsb value) (msb value) sysex/SYSEX_END]
-          [(pin-command ANALOG_IO_MESSAGE pin) (lsb value) (msb value)])))
+          [m/SYSEX_START m/EXTENDED_ANALOG pin (lsb value) (msb value) m/SYSEX_END]
+          [(pin-command m/ANALOG_IO_MESSAGE pin) (lsb value) (msb value)])))
 
   (set-sampling-interval
    [this interval]
-   (send-message this [sysex/SYSEX_START sysex/SAMPLING_INTERVAL (lsb interval) (msb interval) sysex/SYSEX_END]))
+   (send-message this [m/SYSEX_START m/SAMPLING_INTERVAL (lsb interval) (msb interval) m/SYSEX_END]))
 
   (send-message
    [this data]
