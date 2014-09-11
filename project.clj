@@ -6,7 +6,7 @@
 
   :jar-exclusions [#"\.cljx"]
 
-  :source-paths ["src/cljx"]
+  :source-paths ["src/clj" "src/cljx"]
 
   :test-paths ["target/test-classes"]
 
@@ -51,7 +51,7 @@
                  :rules :cljs}]}
 
   :cljsbuild {:builds [{:id "test"
-                        :source-paths ["target/classes" "target/test-classes"]
+                        :source-paths ["src/cljs" "target/classes" "target/test-classes"]
                         :compiler {:output-to "target/testable.js"
                                    :output-dir "target/test-js"
                                    :target :nodejs

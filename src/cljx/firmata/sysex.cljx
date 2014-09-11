@@ -1,7 +1,7 @@
 (ns firmata.sysex
     (:require [firmata.messages :as m]
               [firmata.util :as util]
-              [firmata.stream :refer [read!]]))
+              [firmata.stream.spi :refer [read!]]))
 
 
 (defn consume-sysex

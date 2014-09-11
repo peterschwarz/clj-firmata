@@ -1,5 +1,5 @@
 (ns firmata.test.mock-stream
-  (:require [firmata.stream :refer [FirmataStream open! close! write listen]])
+  (:require [firmata.stream.spi :refer [FirmataStream open! close! write listen]])
   #+clj 
   (:import [java.io ByteArrayInputStream]
            [java.nio ByteBuffer]))

@@ -1,6 +1,7 @@
 (ns firmata.core
   (:require [firmata.messages :as m]
             [firmata.stream :as st]
+            [firmata.stream.spi :as spi :refer [read!]]
             [firmata.sysex :refer [read-sysex-event]]
             [firmata.util :as util :refer [lsb msb]]
 
@@ -91,12 +92,12 @@
 
 (defn- read-version
   [in]
-  (str (st/read! in) "." (st/read! in)))
+  (str (read! in) "." (read! in)))
 
 (defn- read-analog
   [message in]
   (let [pin (- message m/ANALOG_IO_MESSAGE)
-        value (util/bytes-to-int (st/read! in) (st/read! in))]
+        value (util/bytes-to-int (read! in) (read! in))]
     {:type :analog-msg
      :pin pin
      :value value}))
@@ -105,7 +106,7 @@
   [board message in]
   (let [port (- message m/DIGITAL_IO_MESSAGE)
         previous-port (get-in @(:state board)[:digital-in port])
-        updated-port (util/bytes-to-int (st/read! in) (st/read! in))
+        updated-port (util/bytes-to-int (read! in) (read! in))
         pin-change (- updated-port previous-port)
         pin (+ (util/lowest-set-bit pin-change) (* 8 port))
         raw-value (if (> pin-change 0) 1 0)]
@@ -118,7 +119,7 @@
 
 (defn- read-event
   [board in]
-  (let [message (st/read! in)]
+  (let [message (read! in)]
     (cond
      (= m/PROTOCOL_VERSION message) (let [version (read-version in)]
                                     {:type :protocol-version, :version version})
@@ -185,7 +186,7 @@
    [this]
    (a/close! write-ch)
    (a/close! read-ch)
-   (st/close! port)
+   (spi/close! port)
    nil)
 
   (reset-board!
@@ -293,7 +294,7 @@
 
     (go (loop []
           (when-let [data (<! write-ch)]
-            (st/write port data)
+            (spi/write port data)
             (recur))))
 
     (->Board port board-state read-ch write-ch mult-ch pub-ch publisher create-channel)))
@@ -312,10 +313,10 @@
         create-channel #(chan (a/sliding-buffer event-buffer-size))
         read-ch (create-channel)
 
-        port (st/open! stream)
+        port (spi/open! stream)
         result-ch (chan 1)]
 
-    (st/listen port (firmata-handler {:state board-state 
+    (spi/listen port (firmata-handler {:state board-state 
                                       :channel read-ch 
                                       :from-raw-digital from-raw-digital}))
 

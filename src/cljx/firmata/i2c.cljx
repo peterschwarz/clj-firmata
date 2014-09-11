@@ -1,7 +1,7 @@
 (ns firmata.i2c
   (:require [firmata.core :refer [send-message]]
             [firmata.util :refer [msb lsb bytes-to-int]]
-            [firmata.stream :refer [read!]]
+            [firmata.stream.spi :refer [read!]]
             [firmata.messages :refer [SYSEX_START SYSEX_END
                                       I2C_REQUEST I2C_REPLY I2C_CONFIG]]
             [firmata.sysex :refer [read-sysex-event
