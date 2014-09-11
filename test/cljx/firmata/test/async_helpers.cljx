@@ -1,11 +1,17 @@
 (ns firmata.test.async-helpers
   (:require #+clj
-            [clojure.core.async :as a :refer [go <! <!! timeout]]
+            [clojure.core.async :as a :refer [go <! <!! timeout alts!!]]
             #+cljs
             [cljs.core.async    :as a :refer [<!]])
   #+cljs 
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
+#+clj
+(defn get-event
+  [ch f]
+  (f (first (alts!! [ch (timeout 100)]))))
+
+#+cljs
 (defn get-event
   [ch f]
   (go 
