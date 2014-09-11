@@ -347,10 +347,11 @@
   [port-name #+cljs on-ready
    & {:keys [baud-rate event-buffer-size from-raw-digital]
       :or {baud-rate 57600 event-buffer-size 1024 from-raw-digital to-keyword}}]
-  (open-board (st/create-serial-stream port-name baud-rate) 
-              #+cljs on-ready
-              :event-buffer-size event-buffer-size
-              :from-raw-digital from-raw-digital))
+    #+clj
+    (open-board (st/create-serial-stream port-name baud-rate) :event-buffer-size event-buffer-size :from-raw-digital from-raw-digital)
+    #+cljs 
+    (st/create-serial-stream port-name baud-rate 
+      #(open-board % on-ready :event-buffer-size event-buffer-size :from-raw-digital from-raw-digital)))
 
 (defn open-network-board
   "Opens a connection to a board at a host and port.
@@ -359,8 +360,12 @@
   [host port #+cljs on-ready
    & {:keys [event-buffer-size from-raw-digital]
       :or {event-buffer-size 1024 from-raw-digital to-keyword}}]
-    (open-board (st/create-socket-client-stream host port) 
-                #+cljs on-ready
+    #+clj  (open-board (st/create-socket-client-stream host port) 
                 :warmup-time 0
                 :event-buffer-size event-buffer-size
-                :from-raw-digital from-raw-digital))
+                :from-raw-digital from-raw-digital)
+    #+cljs (st/create-socket-client-stream host port 
+              #(open-board % on-ready
+                  :warmup-time 0
+                  :event-buffer-size event-buffer-size
+                  :from-raw-digital from-raw-digital)))

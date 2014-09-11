@@ -19,7 +19,13 @@
           _ (aset this "__current-index" (inc current-index))]
       value)))
 
-(def ^:private SerialPort (.-SerialPort (nodejs/require "serialport")))
+(def ^:private SerialPort 
+  (try
+    ; TODO: This is an issue if the npm dependency is missing
+    (.-SerialPort (nodejs/require "serialport"))
+    (catch js/Error e 
+      (.error js/console "Unable to required 'serialport': This may be due to a missing npm dependency.")
+      nil)))
 
 (defn- concat-buffers [b1 b2]
   (.-concat js/Buffer) (object-array b1 b2))
@@ -39,15 +45,10 @@
           (or (= PROTOCOL_VERSION first-byte) (is-digital? first-byte) (is-analog? first-byte))
             (emit-and-clear))))))
 
-(defrecord SerialStream [port-name baud-rate]
+(defrecord SerialStream [serialport]
    FirmataStream
 
-  (open! [this]
-    (let [serial-port (SerialPort. 
-                        (:port-name this) 
-                        #js {:baudrate (:baud-rate this)
-                             :parser (create-parser)})]
-      (assoc this :serial-port serial-port)))
+  (open! [this] this)
 
   (close! [this]
     (when-let [serial-port (:serial-port this)]
@@ -62,13 +63,18 @@
     (when-let [serial-port (:serial-port this)]
       (.write serial-port data))))
 
-(defn create-serial-stream [port-name baud-rate]
-  (SerialStream. port-name baud-rate))
+(defn create-serial-stream [port-name baud-rate on-connected]
+  (let [serial-port (SerialPort. 
+                        port-name
+                        #js {:baudrate baud-rate
+                             :parser (create-parser)})]
+    (.on serial-port "open" (fn []
+        (on-connected (SerialStream. serial-port) )))))
 
 (defrecord SocketClientStream [host port]
   ; TODO: Implement in cljs
   )
 
-(defn create-socket-client-stream [host port]
+(defn create-socket-client-stream [host port on-connected]
   (SocketClientStream. host port))
 

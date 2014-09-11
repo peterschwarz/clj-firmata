@@ -26,7 +26,7 @@
                              ; [com.cemerick/clojurescript.test "0.3.2-SNAPSHOT"]
                              [lein-npm "0.4.0"]]
                    :aliases {"cleantest" ["do" "clean," "cljx" "once," "test,"
-                                          "cljsbuild" "test"]
+                                          "npm" "install," "cljsbuild" "test"]
                              "deploy" ["do" "clean," "cljx" "once," "deploy" "clojars"]}}}
 
   :hooks [cljx.hooks]
