@@ -22,12 +22,17 @@
                                  :exclusions [org.clojure/clojure]]
                              [lein-cloverage "1.0.2"]
                              [lein-cljsbuild "1.0.3"]
-                             [com.cemerick/clojurescript.test "0.3.1"]]
+                             [com.cemerick/clojurescript.test "0.3.1"]
+                             ; [com.cemerick/clojurescript.test "0.3.2-SNAPSHOT"]
+                             [lein-npm "0.4.0"]]
                    :aliases {"cleantest" ["do" "clean," "cljx" "once," "test,"
                                           "cljsbuild" "test"]
                              "deploy" ["do" "clean," "cljx" "once," "deploy" "clojars"]}}}
 
   :hooks [cljx.hooks]
+
+  :node-dependencies [[serialport "1.4.6"]]
+  :npm-root "target"
 
   :cljx {:builds [{:source-paths ["src/cljx"]
                  :output-path "target/classes"
