@@ -45,23 +45,21 @@
           (or (= PROTOCOL_VERSION first-byte) (is-digital? first-byte) (is-analog? first-byte))
             (emit-and-clear))))))
 
-(defrecord SerialStream [serialport]
-   FirmataStream
+
+(extend-type SerialPort
+  FirmataStream
 
   (open! [this] this)
 
-  (close! [this]
-    (when-let [serial-port (:serial-port this)]
-      (.close serial-port)
-      (dissoc this :serial-port)))
+  (close! [this] (.close this) this)
 
   (listen [this handler]
-    (when-let [serial-port (:serial-port this)]
-      (.on serial-port "data" handler)))
+    (.on this "data" handler)
+    nil)
 
   (write [this data]
-    (when-let [serial-port (:serial-port this)]
-      (.write serial-port data))))
+    (.write this data)
+    nil))
 
 (defn create-serial-stream [port-name baud-rate on-connected]
   (let [serial-port (SerialPort. 
@@ -69,12 +67,28 @@
                         #js {:baudrate baud-rate
                              :parser (create-parser)})]
     (.on serial-port "open" (fn []
-        (on-connected (SerialStream. serial-port) )))))
+        (on-connected serial-port)))))
 
-(defrecord SocketClientStream [host port]
-  ; TODO: Implement in cljs
-  )
+(def Socket (.-Socket (nodejs/require "net")))
+
+(extend-type Socket
+  FirmataStream
+
+  (open! [this] this)
+
+  (close! [this] 
+    (.end this) 
+    this)
+
+  (listen [this handler]
+    (.on this "data" handler)
+    nil)
+
+  (write [this data]
+    (.write this data)
+    nil))
 
 (defn create-socket-client-stream [host port on-connected]
-  (SocketClientStream. host port))
+  (let [socket (Socket.)]
+    (.connect socket port host #(on-connected socket))))
 
