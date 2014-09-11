@@ -5,3 +5,5 @@ jdk:
   - openjdk7
   - oraclejdk7
   - oraclejdk8
+env:
+ - NODE_PATH=./target/node_modules
