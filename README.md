@@ -2,13 +2,15 @@
 
 [![Build Status](https://travis-ci.org/peterschwarz/clj-firmata.png?branch=master)](https://travis-ci.org/peterschwarz/clj-firmata)
 
-**clj-firmata** provides access to [Standard Firmata](http://firmata.org/) commands via clojure.
+**clj-firmata** provides access to [Standard Firmata](http://firmata.org/) commands via Clojure[script].
 
 ## Usage
 
 Add the following to your `project.clj`
 
 	[clj-firmata 2.0.0-SNAPSHOT]
+
+For Clojurescript usage, see [here](doc/clojurescript.md)
 
 ### Connect to a Board
 
