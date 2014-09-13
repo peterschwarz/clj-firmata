@@ -26,7 +26,8 @@
                              [lein-cljsbuild "1.0.3"]
                              [com.cemerick/clojurescript.test "0.3.1"]
                              ; [com.cemerick/clojurescript.test "0.3.2-SNAPSHOT"]
-                             [lein-npm "0.4.0"]]
+                             [lein-npm "0.4.0"]
+                             [org.bodil/lein-noderepl "0.1.11"]]
                    :aliases {"cleantest" ["do" "clean," "cljx" "once," "test,"
                                           "npm" "install," "cljsbuild" "test"]
                              "deploy" ["do" "clean," "cljx" "once," "deploy" "clojars"]}}}
@@ -53,7 +54,7 @@
                  :rules :cljs}]}
 
   :cljsbuild {:builds [{:id "test"
-                        :source-paths ["src/cljs" "target/classes" "target/test-classes"]
+                        :source-paths ["src/cljs" "test/cljs" "target/classes" "target/test-classes"]
                         :compiler {:output-to "target/testable.js"
                                    :output-dir "target/test-js"
                                    :target :nodejs

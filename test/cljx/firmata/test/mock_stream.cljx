@@ -28,14 +28,14 @@
   (to-bytes [this] (js/Buffer. this)))
 
 #+clj 
-(defn- create-byte-stream
+(defn create-byte-stream
   [& more]
   (let [buffer (ByteBuffer/allocate 256)]
     (reduce (fn [^ByteBuffer b ^bytes value] (.put b (to-bytes value))) buffer more)
     (ByteArrayInputStream. (.array buffer))))
 
 #+cljs
-(defn- create-byte-stream
+(defn create-byte-stream
   [& more]
   ((.-concat js/Buffer) (to-array (map #(to-bytes %) more))))
 

@@ -21,7 +21,6 @@
 
 (def ^:private SerialPort 
   (try
-    ; TODO: This is an issue if the npm dependency is missing
     (.-SerialPort (nodejs/require "serialport"))
     (catch js/Error e 
       (.error js/console "Unable to required 'serialport': This may be due to a missing npm dependency.")
@@ -30,21 +29,44 @@
 (defn- concat-buffers [b1 b2]
   (.-concat js/Buffer) (object-array b1 b2))
 
-(defn- create-parser [] 
-  (let [buffer (atom (js/Buffer 0))]
-    (fn [emmitter data]
-      (reset! buffer (concat-buffers @buffer data))
-      (let [first-byte (aget @buffer 0)
-            last-byte (aget @buffer (-> @buffer count dec))
-            emit-and-clear (fn [] 
-                            (.emit emmitter "data" @buffer)
-                            (reset! buffer (js/Buffer 0)))]
-        (cond 
-          (and (= SYSEX_START first-byte) (= SYSEX_END last-byte)) 
-            (emit-and-clear) 
-          (or (= PROTOCOL_VERSION first-byte) (is-digital? first-byte) (is-analog? first-byte))
-            (emit-and-clear))))))
+(defprotocol Emitter
+  (emit! [this event data] "Sends an event with the given data"))
 
+(def EventEmitter (.-EventEmitter (nodejs/require "events")))
+
+(extend-type EventEmitter
+  Emitter
+  (emit! [this type data] (.emit this type data)))
+
+(defn afirst [a]
+  (aget a 0))
+
+(defn alast [a]
+  (aget a (-> a alength dec)))
+
+(defn valid-cmd? [b]
+  (or (= PROTOCOL_VERSION b) (is-digital? b) (is-analog? b)))
+
+(defn create-parser [] 
+  (let [buffer (make-array 0)
+        buf-reset! #(set! (.-length buffer) 0)
+        emit-and-clear (fn [emitter] 
+                        (emit! emitter "data" (js/Buffer buffer))
+                        (buf-reset!))]
+    (fn [emitter data]
+      ; Todo; this seems a bit expensive, need to see if there may be a bug fix
+      (doseq [b (vec (aclone data))]
+        (when (not (= 0 (alength buffer) b))
+          (.push buffer b)
+          (let [first-byte (afirst buffer)
+                last-byte (alast buffer)]
+            (cond 
+              (and (= SYSEX_START first-byte) (= SYSEX_END last-byte)) 
+                (emit-and-clear emitter)
+              (and (valid-cmd? first-byte) (= 3 (alength buffer))) ;; non-sysex command
+                (emit-and-clear emitter)
+              (not (or (= SYSEX_START first-byte) (valid-cmd? first-byte))) ;; out of sync
+                (buf-reset!))))))))
 
 (extend-type SerialPort
   FirmataStream
