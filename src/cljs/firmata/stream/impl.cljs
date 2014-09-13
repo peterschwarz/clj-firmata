@@ -6,6 +6,27 @@
                                       is-digital? is-analog?]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
+
+(defprotocol Bytable
+  (to-bytes [this] "Converts the type to bytes"))
+
+(extend-protocol Bytable
+
+  number 
+  (to-bytes [this] 
+    (let [b (js/Buffer. 1)]
+      (.writeUInt8 b this 0)
+      b))
+
+  string
+  (to-bytes [this] 
+    (js/Buffer. this)))
+
+(defn make-buffer [value]
+  (if (coll? value) 
+    ((.-concat js/Buffer) (to-array (map #(to-bytes %) value)))
+    (to-bytes value)))
+
 (extend-type js/Buffer
 
   ByteReader
@@ -80,7 +101,7 @@
     nil)
 
   (write [this data]
-    (.write this data)
+    (.write this (make-buffer data))
     nil))
 
 (defn create-serial-stream [port-name baud-rate on-connected]
@@ -107,7 +128,7 @@
     nil)
 
   (write [this data]
-    (.write this data)
+    (.write this (make-buffer data))
     nil))
 
 (defn create-socket-client-stream [host port on-connected]
