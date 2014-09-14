@@ -12,7 +12,7 @@ Build your application as you would normally.
 
 ## Differences from Clojure
 
-The main difference is in opening a board. Unlike the Clojure version of `open-board` and its siblings, the Clojurescript version takes a callback. 
+The main difference is in opening a board. Unlike the Clojure version of `open-board` and its siblings, the Clojurescript version takes a callback. For example, opening a serial board:
 
     (ns my-firmata-app
         (:require [firmata.core :as f]))
