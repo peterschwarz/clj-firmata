@@ -47,34 +47,22 @@
       (.error js/console "Unable to required 'serialport': This may be due to a missing npm dependency.")
       nil)))
 
-(defn- concat-buffers [b1 b2]
-  (.-concat js/Buffer) (object-array b1 b2))
-
-(defprotocol Emitter
-  (emit! [this event data] "Sends an event with the given data"))
-
-(def EventEmitter (.-EventEmitter (nodejs/require "events")))
-
-(extend-type EventEmitter
-  Emitter
-  (emit! [this type data] (.emit this type data)))
-
-(defn afirst [a]
+(defn- afirst [a]
   (aget a 0))
 
-(defn alast [a]
+(defn- alast [a]
   (aget a (-> a alength dec)))
 
-(defn valid-cmd? [b]
+(defn- valid-cmd? [b]
   (or (= PROTOCOL_VERSION b) (is-digital? b) (is-analog? b)))
 
-(defn create-parser [] 
+(defn create-preparser [on-complete-data] 
   (let [buffer (make-array 0)
         buf-reset! #(set! (.-length buffer) 0)
-        emit-and-clear (fn [emitter] 
-                        (emit! emitter "data" (js/Buffer buffer))
+        emit-and-clear (fn [] 
+                        (on-complete-data (js/Buffer buffer))
                         (buf-reset!))]
-    (fn [emitter data]
+    (fn [data]
       ; Todo; this seems a bit expensive, need to see if there may be a bug fix
       (doseq [b (vec (aclone data))]
         (when (not (= 0 (alength buffer) b))
@@ -83,11 +71,20 @@
                 last-byte (alast buffer)]
             (cond 
               (and (= SYSEX_START first-byte) (= SYSEX_END last-byte)) 
-                (emit-and-clear emitter)
+                (emit-and-clear)
               (and (valid-cmd? first-byte) (= 3 (alength buffer))) ;; non-sysex command
-                (emit-and-clear emitter)
+                (emit-and-clear)
               (not (or (= SYSEX_START first-byte) (valid-cmd? first-byte))) ;; out of sync
                 (buf-reset!))))))))
+
+(defn- on-data [listenable handler]
+  (let [preparser (create-preparser handler)]
+    (.on listenable "data" preparser))
+  nil)
+
+(defn- write-data [writer data]
+  (.write writer (make-buffer data))
+  nil)
 
 (extend-type SerialPort
   FirmataStream
@@ -97,20 +94,14 @@
   (close! [this] (.close this) this)
 
   (listen [this handler]
-    (.on this "data" handler)
-    nil)
+    (on-data this handler))
 
   (write [this data]
-    (.write this (make-buffer data))
-    nil))
+    (write-data this data)))
 
 (defn create-serial-stream [port-name baud-rate on-connected]
-  (let [serial-port (SerialPort. 
-                        port-name
-                        #js {:baudrate baud-rate
-                             :parser (create-parser)})]
-    (.on serial-port "open" (fn []
-        (on-connected serial-port)))))
+  (let [serial-port (SerialPort. port-name #js {:baudrate baud-rate})]
+    (.on serial-port "open" #(on-connected serial-port))))
 
 (def Socket (.-Socket (nodejs/require "net")))
 
@@ -124,14 +115,11 @@
     this)
 
   (listen [this handler]
-    (.on this "data" handler)
-    nil)
+    (on-data this handler))
 
   (write [this data]
-    (.write this (make-buffer data))
-    nil))
+    (write-data this data)))
 
 (defn create-socket-client-stream [host port on-connected]
   (let [socket (Socket.)]
     (.connect socket port host #(on-connected socket))))
-
