@@ -29,8 +29,7 @@
                              [lein-npm "0.4.0"]
                              [org.bodil/lein-noderepl "0.1.11"]]
                    :aliases {"cleantest" ["do" "clean," "cljx" "once," "test,"
-                                          "npm" "install," "cljsbuild" "test"]
-                             "deploy" ["do" "clean," "cljx" "once," "deploy" "clojars"]}}}
+                                          "npm" "install," "cljsbuild" "test"]}}}
 
   :hooks [cljx.hooks]
 
