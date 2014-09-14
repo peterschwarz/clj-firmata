@@ -1,13 +1,11 @@
 (ns firmata.i2c
-    (:require [firmata.core :refer :all]
-              [firmata.sysex :refer [read-sysex-event read-two-byte-data
-                                     SYSEX_START SYSEX_END]]
-              [firmata.util :refer :all]))
-
-; I2C Messages
-(def ^{:private true} I2C_REQUEST             0x76 ); I2C request messages from a host to an I/O board
-(def ^{:private true} I2C_REPLY               0x77 ); I2C reply messages from an I/O board to a host
-(def ^{:private true} I2C_CONFIG              0x78 ); Configure special I2C settings such as power pins and delay times
+  (:require [firmata.core :refer [send-message]]
+            [firmata.util :refer [msb lsb bytes-to-int]]
+            [firmata.stream.spi :refer [read!]]
+            [firmata.messages :refer [SYSEX_START SYSEX_END
+                                      I2C_REQUEST I2C_REPLY I2C_CONFIG]]
+            [firmata.sysex :refer [read-sysex-event
+                                   read-two-byte-data]]))
 
 ; I2C Modes
 (def ^{:private true} i2c-modes [:write :read-once :read-continuously :stop-reading])
@@ -17,8 +15,8 @@
 
 (defmethod read-sysex-event I2C_REPLY
   [in]
-  (let [slave-address (bytes-to-int (.read in) (.read in))
-        register (bytes-to-int (.read in) (.read in))
+  (let [slave-address (bytes-to-int (read! in) (read! in))
+        register (bytes-to-int (read! in) (read! in))
         data (read-two-byte-data in)]
     {:type :i2c-reply
      :slave-address slave-address

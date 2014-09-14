@@ -1,6 +1,6 @@
 (ns firmata.util
-  (:require [clojure.core.async :as a]
-            [serial.core :refer [port-ids]]))
+  (:require [firmata.stream.spi :refer [read!]]
+            #+clj [serial.core :refer [port-ids]]))
 
 ; Number conversions
 
@@ -22,16 +22,17 @@
   (to-number [msb lsb]))
 
 (defn lowest-set-bit [x]
-  (int (max 0 (/ (Math/log (bit-and x (- x))) (Math/log 2)))))
+  #+clj  (int (max 0 (/ (Math/log (bit-and x (- x))) (Math/log 2))))
+  #+cljs (max 0 (/ (.log js/Math (bit-and x (- x))) (aget js/Math "LN2"))))
 
 (defn consume-until
   "Consumes bytes from the given input stream until the end-signal is reached."
   [end-signal in initial accumulator]
-  (loop [current-value (.read in)
+  (loop [current-value (read! in)
          result initial]
     (if (= end-signal current-value)
       result
-      (recur (.read in)
+      (recur (read! in)
              (accumulator result current-value)))))
 
 (defn arduino-map
@@ -55,7 +56,9 @@
 
 (defn to-hex-str
   "For debug output"
-  [x] (str "0x" (.toUpperCase (Integer/toHexString x))))
+  [x] (str "0x" (.toUpperCase 
+                #+clj (Integer/toHexString x)
+                #+cljs (.toString x 16))))
 
 (defn- substring? [sub st]
   (not= (.indexOf st sub) -1))
@@ -67,6 +70,7 @@
     (substring? "tty.usbmodem" port-name)    ;; Uno or Mega 2560
     (substring? "tty.usbserial" port-name))) ;; Older boards
 
+#+clj
 (defn detect-arduino-port
   "Returns the first arduino serial port based on port
    name, or nil. Currently only works for Mac."

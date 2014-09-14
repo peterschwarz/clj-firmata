@@ -1,28 +1,15 @@
-(ns firmata.stream
-  (:require [serial.core :as serial]
-            [clojure.core.async :as a :refer [go <!! timeout]])
+(ns firmata.stream.impl
+  (:require [firmata.stream.spi :refer [FirmataStream ByteReader]]
+            [serial.core :as serial]
+            [clojure.core.async :as a :refer [go <! timeout]])
   (:import [java.net InetSocketAddress Socket]
            [java.io InputStream]))
-
-(defprotocol ByteReader
-  (read! [this] "reads a byte, and removes it from the stream"))
 
 (extend-type InputStream
 
   ByteReader
   
   (read! [this] (.read this)))
-
-(defprotocol FirmataStream
-  "A FirmataStream provides methods for creating connections, writing
-  values to and listening for events on a Firmata-enabled device."
-
-  (open! [this] "opens the stream")
-  (close! [this] "closes the stream")
-
-  (listen [this handler] "listens for data on this stream")
-  (write [this data]))
-
 
 (defrecord SerialStream [port-name baud-rate]
   FirmataStream
@@ -46,7 +33,6 @@
 
 (defn create-serial-stream [port-name baud-rate]
   (SerialStream. port-name baud-rate))
-
 
 (defrecord SocketClientStream [host port]
   FirmataStream
@@ -89,7 +75,11 @@
         (while (.isConnected socket)
           (try
             (handler (.getInputStream socket))
-            (catch java.net.SocketException se)))))))
+            (catch java.net.SocketException se))
+          ; slows the loop down to the the update rate of the device
+          ; TODO: This should be configurable
+          (<! (timeout 19)))))))
 
 (defn create-socket-client-stream [host port]
   (SocketClientStream. host port))
+

@@ -1,22 +1,20 @@
 (ns firmata.core
-  (:require [clojure.core.async :as a :refer [go chan >! >!! <! alts!! <!!]]
+  (:require [firmata.messages :as m]
             [firmata.stream :as st]
-            [firmata.sysex :refer :all]
-            [firmata.util :refer :all]))
+            [firmata.stream.spi :as spi :refer [read!]]
+            [firmata.sysex :refer [read-sysex-event]]
+            [firmata.util :as util :refer [lsb msb]]
 
-; Message Types
+            #+clj 
+            [clojure.core.async :as a :refer [go chan >! <! <!!]]
 
-(def ^{:private true} ANALOG_IO_MESSAGE   0xE0)
-(def ^{:private true} DIGITAL_IO_MESSAGE  0x90)
-(def ^{:private true} REPORT_ANALOG_PIN   0xC0)
-(def ^{:private true} REPORT_DIGITAL_PORT 0xD0)
-
-(def ^{:private true} SET_PIN_IO_MODE     0xF4)
-(def ^{:private true} PROTOCOL_VERSION    0xF9)
-(def ^{:private true} SYSTEM_RESET        0xFF)
+            #+cljs
+            [cljs.core.async    :as a :refer [chan >! <!]])
+  #+cljs
+  (:require-macros [cljs.core.async.macros :refer [go]]))
 
 ; Pin Modes
-(def ^{:private true} mode-values (zipmap modes (range 0 (count modes))))
+(def ^{:private true} mode-values (zipmap m/modes (range 0 (count m/modes))))
 
 (def ^{:private true} MAX-PORTS 16)
 
@@ -94,23 +92,23 @@
 
 (defn- read-version
   [in]
-  (str (st/read! in) "." (st/read! in)))
+  (str (read! in) "." (read! in)))
 
 (defn- read-analog
   [message in]
-  (let [pin (- message ANALOG_IO_MESSAGE)
-        value (bytes-to-int (st/read! in) (st/read! in))]
+  (let [pin (- message m/ANALOG_IO_MESSAGE)
+        value (util/bytes-to-int (read! in) (read! in))]
     {:type :analog-msg
      :pin pin
      :value value}))
 
 (defn- read-digital
   [board message in]
-  (let [port (- message DIGITAL_IO_MESSAGE)
+  (let [port (- message m/DIGITAL_IO_MESSAGE)
         previous-port (get-in @(:state board)[:digital-in port])
-        updated-port (bytes-to-int (st/read! in) (st/read! in))
+        updated-port (util/bytes-to-int (read! in) (read! in))
         pin-change (- updated-port previous-port)
-        pin (+ (lowest-set-bit pin-change) (* 8 port))
+        pin (+ (util/lowest-set-bit pin-change) (* 8 port))
         raw-value (if (> pin-change 0) 1 0)]
     (swap! (:state board) assoc-in [:digital-in port] updated-port)
     {:type :digital-msg
@@ -121,13 +119,13 @@
 
 (defn- read-event
   [board in]
-  (let [message (st/read! in)]
+  (let [message (read! in)]
     (cond
-     (= PROTOCOL_VERSION message) (let [version (read-version in)]
+     (= m/PROTOCOL_VERSION message) (let [version (read-version in)]
                                     {:type :protocol-version, :version version})
-     (= SYSEX_START message) (read-sysex-event in)
-     (<= 0x90 message 0x9F) (read-digital board message in)
-     (<= 0xE0 message 0xEF) (read-analog message in)
+     (= m/SYSEX_START message) (read-sysex-event in)
+     (m/is-digital? message) (read-digital board message in)
+     (m/is-analog? message)  (read-analog message in)
 
      :else {:type :unknown-msg
             :value message})))
@@ -136,7 +134,7 @@
   [board]
   (fn [in]
     (let [event (read-event board in)]
-      (a/go (>! (:channel board) event)))))
+      (go (>! (:channel board) event)))))
 
 (defn- pin?
   ([pin] (pin? pin 128))
@@ -188,12 +186,12 @@
    [this]
    (a/close! write-ch)
    (a/close! read-ch)
-   (st/close! port)
+   (spi/close! port)
    nil)
 
   (reset-board!
     [this]
-    (send-message this SYSTEM_RESET))
+    (send-message this m/SYSTEM_RESET))
 
   (version
    [this]
@@ -205,40 +203,40 @@
 
   (query-firmware
    [this]
-   (send-message this [SYSEX_START REPORT_FIRMWARE SYSEX_END]))
+   (send-message this [m/SYSEX_START m/REPORT_FIRMWARE m/SYSEX_END]))
 
   (query-capabilities
    [this]
-   (send-message this [SYSEX_START CAPABILITY_QUERY SYSEX_END]))
+   (send-message this [m/SYSEX_START m/CAPABILITY_QUERY m/SYSEX_END]))
 
   (query-version
    [this]
-   (send-message this PROTOCOL_VERSION))
+   (send-message this m/PROTOCOL_VERSION))
 
   (query-analog-mappings
    [this]
-   (send-message this [SYSEX_START ANALOG_MAPPING_QUERY SYSEX_END]))
+   (send-message this [m/SYSEX_START m/ANALOG_MAPPING_QUERY m/SYSEX_END]))
 
   (query-pin-state
    [this pin]
    (assert (pin? pin) "must supply a valid pin value 0-127")
-   (send-message this [SYSEX_START PIN_STATE_QUERY pin SYSEX_END]))
+   (send-message this [m/SYSEX_START m/PIN_STATE_QUERY pin m/SYSEX_END]))
 
   (set-pin-mode
    [this pin mode]
    (assert (pin? pin) "must supply a valid pin value 0-127")
-   (assert (mode mode-values) (str "must supply a valid mode: " (clojure.string/join ", " modes)))
-   (send-message this [SET_PIN_IO_MODE pin (mode mode-values)]))
+   (assert (mode mode-values) (str "must supply a valid mode: " (clojure.string/join ", " m/modes)))
+   (send-message this [m/SET_PIN_IO_MODE pin (mode mode-values)]))
 
   (enable-analog-in-reporting
    [this pin enabled?]
    (assert (pin? pin 16) "must supply a valid pin value 0-15")
-   (enable-reporting this REPORT_ANALOG_PIN pin enabled?))
+   (enable-reporting this m/REPORT_ANALOG_PIN pin enabled?))
 
   (enable-digital-port-reporting
    [this pin enabled?]
    (assert (pin? pin 16) "must supply a valid pin value 0-15")
-   (enable-reporting this REPORT_DIGITAL_PORT (port-of pin) enabled?))
+   (enable-reporting this m/REPORT_DIGITAL_PORT (port-of pin) enabled?))
 
   (set-digital
    [this pin value]
@@ -251,19 +249,19 @@
                      (bit-or current-port pin-value)
                      (bit-and current-port (bit-not pin-value)))]
      (swap! board-state assoc-in [:digital-out port] next-port)
-     (send-message this [(pin-command DIGITAL_IO_MESSAGE port) (lsb next-port) (msb next-port)])))
+     (send-message this [(pin-command m/DIGITAL_IO_MESSAGE port) (lsb next-port) (msb next-port)])))
 
   (set-analog
    [this pin value]
    (assert (pin? pin) "must supply a valid pin value 0-127")
    (send-message this
         (if (> pin 15)
-          [SYSEX_START EXTENDED_ANALOG pin (lsb value) (msb value) SYSEX_END]
-          [(pin-command ANALOG_IO_MESSAGE pin) (lsb value) (msb value)])))
+          [m/SYSEX_START m/EXTENDED_ANALOG pin (lsb value) (msb value) m/SYSEX_END]
+          [(pin-command m/ANALOG_IO_MESSAGE pin) (lsb value) (msb value)])))
 
   (set-sampling-interval
    [this interval]
-   (send-message this [SYSEX_START SAMPLING_INTERVAL (lsb interval) (msb interval) SYSEX_END]))
+   (send-message this [m/SYSEX_START m/SAMPLING_INTERVAL (lsb interval) (msb interval) m/SYSEX_END]))
 
   (send-message
    [this data]
@@ -296,7 +294,7 @@
 
     (go (loop []
           (when-let [data (<! write-ch)]
-            (st/write port data)
+            (spi/write port data)
             (recur))))
 
     (->Board port board-state read-ch write-ch mult-ch pub-ch publisher create-channel)))
@@ -305,8 +303,9 @@
   "Opens a connection to a board over a given FirmataStream.
   The buffer size for the events may be set with the option :event-buffer size
   (default value 1024)."
-  [stream & {:keys [event-buffer-size from-raw-digital warmup-time]
-                :or {event-buffer-size 1024 from-raw-digital to-keyword warmup-time 5000}}]
+  [stream #+cljs on-ready
+    & {:keys [event-buffer-size from-raw-digital warmup-time]
+       :or {event-buffer-size 1024 from-raw-digital to-keyword warmup-time 5000}}]
   (assert from-raw-digital ":from-raw-digital may not be nil")
   (let [board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
                            :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})
@@ -314,10 +313,10 @@
         create-channel #(chan (a/sliding-buffer event-buffer-size))
         read-ch (create-channel)
 
-        port (st/open! stream)
+        port (spi/open! stream)
         result-ch (chan 1)]
 
-    (st/listen port (firmata-handler {:state board-state 
+    (spi/listen port (firmata-handler {:state board-state 
                                       :channel read-ch 
                                       :from-raw-digital from-raw-digital}))
 
@@ -336,26 +335,37 @@
     ; This can be replaced with 
     ; (take! result-ch callback)
     ; for clojurescript
-    (<!! result-ch)))
+    #+clj (<!! result-ch)
+    #+cljs (a/take! result-ch on-ready)
+    ))
 
 (defn open-serial-board
   "Opens a connection to a board at a given port name.
   The baud rate may be set with the option :baud-rate (default value 57600).
   The buffer size for the events may be set with the option :event-buffer size
   (default value 1024)."
-  [port-name & {:keys [baud-rate event-buffer-size from-raw-digital]
-                :or {baud-rate 57600 event-buffer-size 1024 from-raw-digital to-keyword}}]
-  (open-board (st/create-serial-stream port-name baud-rate) 
-              :event-buffer-size event-buffer-size
-              :from-raw-digital from-raw-digital))
+  [port-name #+cljs on-ready
+   & {:keys [baud-rate event-buffer-size from-raw-digital]
+      :or {baud-rate 57600 event-buffer-size 1024 from-raw-digital to-keyword}}]
+    #+clj
+    (open-board (st/create-serial-stream port-name baud-rate) :event-buffer-size event-buffer-size :from-raw-digital from-raw-digital)
+    #+cljs 
+    (st/create-serial-stream port-name baud-rate 
+      #(open-board % on-ready :event-buffer-size event-buffer-size :from-raw-digital from-raw-digital)))
 
 (defn open-network-board
   "Opens a connection to a board at a host and port.
   The buffer size for the events may be set with the option :event-buffer size
   (default value 1024)."
-  [host port & {:keys [event-buffer-size from-raw-digital]
-                :or {event-buffer-size 1024 from-raw-digital to-keyword}}]
-    (open-board (st/create-socket-client-stream host port) 
+  [host port #+cljs on-ready
+   & {:keys [event-buffer-size from-raw-digital]
+      :or {event-buffer-size 1024 from-raw-digital to-keyword}}]
+    #+clj  (open-board (st/create-socket-client-stream host port) 
                 :warmup-time 0
                 :event-buffer-size event-buffer-size
-                :from-raw-digital from-raw-digital))
+                :from-raw-digital from-raw-digital)
+    #+cljs (st/create-socket-client-stream host port 
+              #(open-board % on-ready
+                  :warmup-time 0
+                  :event-buffer-size event-buffer-size
+                  :from-raw-digital from-raw-digital)))
