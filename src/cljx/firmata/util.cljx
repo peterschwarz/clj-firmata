@@ -1,6 +1,9 @@
 (ns firmata.util
   (:require [firmata.stream.spi :refer [read!]]
-            #+clj [serial.core :refer [port-ids]]))
+            #+clj 
+            [serial.core :refer [port-ids]]
+            #+cljs
+            [cljs.nodejs :as nodejs]))
 
 ; Number conversions
 
@@ -66,9 +69,7 @@
 (defn- arduino-port?
   "Compares port name with known arduino port formats"
   [port-name]
-  (or
-    (substring? "tty.usbmodem" port-name)    ;; Uno or Mega 2560
-    (substring? "tty.usbserial" port-name))) ;; Older boards
+  (re-matches #".*[tty|cu]\.usbmodem.*" port-name)) ;; Older boards
 
 #+clj
 (defn detect-arduino-port
@@ -77,3 +78,19 @@
   []
   (first (filter arduino-port?
                  (map #(.getName %) (port-ids)))))
+
+#+cljs
+(defn detect-arduino-port
+  "Provides to a callback the first arduino serial port based 
+   on port name, or nil. Currently only works for Mac."
+   [callback]
+   (try 
+      (let [list-fn (.-list (nodejs/require "serialport"))]
+        (list-fn (fn [err ports]
+          (if err
+            (do 
+              (println err)
+              (callback nil))
+            (callback (first (filter arduino-port? (map #(.-comName %) ports))))))))
+    (catch js/Error e
+      (println "Unable to require 'serialport': This may be due to a missing npm dependency."))))
