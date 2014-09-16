@@ -4,7 +4,8 @@
                    :refer (is are deftest testing)]
             #+cljs
             [cemerick.cljs.test :as t]
-            [firmata.util :refer [to-hex-str arduino-map arduino-constrain lowest-set-bit]])
+            [firmata.util :refer [to-hex-str arduino-map arduino-constrain lowest-set-bit
+                                  arduino-port?]])
   #+cljs 
   (:require-macros [cemerick.cljs.test
                        :refer (is are deftest testing )]))
@@ -64,3 +65,15 @@
     2 (lowest-set-bit 4)
     0 (lowest-set-bit 5)
     1 (lowest-set-bit 6)))
+
+(deftest arduino-port-test
+  (testing "matches"
+    (is (arduino-port? "tty.usbmodem1234"))
+    (is (arduino-port? "cu.usbmodem0121"))
+    (is (arduino-port? "/dev/tty.usbmodem54321"))
+    (is (arduino-port? "/dev/cu.usbmodem0121")))
+
+  (testing "no matches"
+    (is (nil? (arduino-port? "usbmodem1234")))
+    (is (nil? (arduino-port? "not.usbmodem1234")))
+    (is (nil? (arduino-port? "/tmp/tty.usbmodem1234")))))

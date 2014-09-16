@@ -63,13 +63,10 @@
                 #+clj (Integer/toHexString x)
                 #+cljs (.toString x 16))))
 
-(defn- substring? [sub st]
-  (not= (.indexOf st sub) -1))
-
-(defn- arduino-port?
+(defn arduino-port?
   "Compares port name with known arduino port formats"
   [port-name]
-  (re-matches #".*[tty|cu]\.usbmodem.*" port-name)) ;; Older boards
+  (re-matches #"^(/dev/)?(tty|cu)\.usbmodem.*$" port-name)) ;; Older boards
 
 #+clj
 (defn detect-arduino-port
