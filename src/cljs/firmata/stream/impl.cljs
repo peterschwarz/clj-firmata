@@ -44,7 +44,7 @@
   (try
     (.-SerialPort (nodejs/require "serialport"))
     (catch js/Error e 
-      (.error js/console "Unable to required 'serialport': This may be due to a missing npm dependency.")
+      (.error js/console "Unable to require 'serialport': This may be due to a missing npm dependency.")
       nil)))
 
 (defn- afirst [a]
