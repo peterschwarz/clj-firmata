@@ -12,6 +12,8 @@
 
   :resource-paths ["src/cljs"]
 
+  ; :jvm-opts ["-Xmx384m"]
+
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/clojurescript "0.0-2311"]
                  [org.clojure/core.async "0.1.338.0-5c5012-alpha"]
