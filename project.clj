@@ -34,8 +34,7 @@
                                           "npm" "install," "cljsbuild" "test"]
                              "cljstest" ["do" "cljx" "once," "cljsbuild" "test"]}}}
 
-  :hooks [cljx.hooks
-          leiningen.cljsbuild]
+  :hooks [cljx.hooks]
 
   :node-dependencies [[serialport "1.4.6"]]
   :npm-root "target"
