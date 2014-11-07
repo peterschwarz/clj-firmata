@@ -79,15 +79,21 @@
 #+cljs
 (defn detect-arduino-port
   "Provides to a callback the first arduino serial port based 
-   on port name, or nil. Currently only works for Mac."
-   [callback]
-   (try 
-      (let [list-fn (.-list (nodejs/require "serialport"))]
+   on port name, or nil. Currently only works for Mac.
+
+   callback: (fn [err port-name])"
+  [callback]
+  (try 
+    (if-let [serialport (nodejs/require "serialport")]
+
+      (let [list-fn (.-list serialport)]
         (list-fn (fn [err ports]
           (if err
-            (do 
-              (println err)
-              (callback nil))
-            (callback (first (filter arduino-port? (map #(.-comName %) ports))))))))
+            (callback err nil)
+            (callback nil 
+              (first (filter arduino-port? 
+                (map #(.-comName %) (aclone ports)))))))))
+
+      (callback "Unable to require 'serialport': This may be due to a missing npm dependency." nil))
     (catch js/Error e
-      (println "Unable to require 'serialport': This may be due to a missing npm dependency."))))
+      (callback e nil))))

@@ -8,6 +8,8 @@ pom.xml.asc
 /.lein-*
 /.nrepl-port
 
+node_modules
+
 # Intellij
 .idea
 *.iml

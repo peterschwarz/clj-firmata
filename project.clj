@@ -12,7 +12,7 @@
 
   :resource-paths ["src/cljs"]
 
-  ; :jvm-opts ["-Xmx384m"]
+  :jvm-opts ["-Xmx384m"]
 
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/clojurescript "0.0-2311"]
@@ -31,9 +31,11 @@
                              [lein-npm "0.4.0"]
                              [org.bodil/lein-noderepl "0.1.11"]]
                    :aliases {"cleantest" ["do" "clean," "cljx" "once," "test,"
-                                          "npm" "install," "cljsbuild" "test"]}}}
+                                          "npm" "install," "cljsbuild" "test"]
+                             "cljstest" ["do" "cljx" "once," "cljsbuild" "test"]}}}
 
-  :hooks [cljx.hooks]
+  :hooks [cljx.hooks
+          leiningen.cljsbuild]
 
   :node-dependencies [[serialport "1.4.6"]]
   :npm-root "target"
@@ -56,8 +58,8 @@
 
   :cljsbuild {:builds [{:id "test"
                         :source-paths ["src/cljs" "test/cljs" "target/classes" "target/test-classes"]
-                        :compiler {:output-to "target/testable.js"
-                                   :output-dir "target/test-js"
+                        :compiler {:output-to   "target/testable.js"
+                                   :output-dir  "target/test-js"
                                    :target :nodejs
                                    :optimizations :simple
                                    :hashbang false}}]
