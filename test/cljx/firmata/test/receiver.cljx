@@ -5,7 +5,7 @@
             #+cljs
             [cemerick.cljs.test :as t]
             [firmata.test.async-helpers :refer [wait-for-it]]
-            [firmata.core :refer [event-channel event-publisher release-event-channel Firmata]]
+            [firmata.core :refer [event-channel event-publisher release-event-channel]]
             [firmata.receiver :refer [stop-receiver! on-event on-analog-event on-digital-event]]
             #+clj
             [clojure.core.async :as a :refer [chan pub]]
@@ -31,11 +31,10 @@
     (a/tap mult-ch e-ch)
     (a/tap mult-ch pub-ch)
 
-    (reify
-      Firmata
-      (event-channel [this] e-ch)
-      (event-publisher [this] p)
-      (release-event-channel [this ch] (a/untap mult-ch ch)))))
+    {:mult-ch mult-ch 
+     :create-channel make-chan
+     :pub-ch pub-ch
+     :publisher p}))
 
 (deftest ^:async receive-event
   (let [channel (make-chan)

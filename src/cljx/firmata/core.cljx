@@ -18,77 +18,7 @@
 
 (def ^{:private true} MAX-PORTS 16)
 
-(defprotocol Firmata
-  (close! [board] "Closes the connection to the board.")
-
-  (reset-board! [board] "Sends the reset signal to the board")
-
-  ; Various queries
-  (query-firmware [board] "Query the firmware of the board.")
-
-  (query-capabilities [board] "Query the capabilities of the board.")
-
-  (query-version [board] "Query the firmware version of the board.")
-
-  (query-analog-mappings
-   [board]
-   "Analog messages are numbered 0 to 15, which traditionally refer to the Arduino pins labeled A0, A1, A2, etc.
-   However, these pins are actually configured using \"normal\" pin numbers in the pin mode message, and when
-   those pins are uses for non-analog functions. The analog mapping query provides the information about which pins
-   (as used with Firmata's pin mode message) correspond to the analog channels")
-
-  (query-pin-state [board pin] "Queries the pin state of a given pin (0-127) on the board")
-
-  (set-pin-mode
-   [board pin mode]
-   "Sets the mode of a pin (0 to 127), one of: :input, :output, :analog, :pwm, :servo, :i2c")
-
-  (enable-analog-in-reporting
-   [board pin enabled?]
-   "Enables 'analog in' reporting of a given pin (0-15).")
-
-  (enable-digital-port-reporting
-   [board pin enabled?]
-   "Enables digital port reporting on a given pin (0-15).")
-
-  (set-digital
-   [board pin value]
-   "Writes the digital value (max of 2 bytes) to the given pin (0-15).")
-
-  (set-analog
-   [board pin value]
-   "Writes the analog value (max of 2 bytes) to the given pin (0-127).")
-
-  (set-sampling-interval
-   [board interval]
-   "The sampling interval sets how often analog data and i2c data is reported to the client.
-   The system default value is 19 milliseconds.")
-
-  (send-message
-   [board args]
-   "Sends an arbitrary message to the board.  Useful for I2C message,
-   which have user-defined data")
-
-  (event-channel
-   [board]
-   "Returns a channel which provides all of the events that have been returned from the board.")
-
-  (release-event-channel
-   [board channel]
-   "Releases the channel")
-
-  (event-publisher
-   [board]
-   "Returns a publisher which provides events by [:type :pin]")
-
-  (version
-   [board]
-   "Returns the currently known version of the board")
-
-  (firmware
-   [board]
-   "Returns the currently known firmware information"))
-
+(defrecord ^:private Board [stream board-state read-ch write-ch mult-ch pub-ch publisher create-channel])
 
 (defn- read-version
   [in]
@@ -150,10 +80,6 @@
   [command pin]
   (bit-and 0xff (bit-or command pin)))
 
-(defn- enable-reporting
-  [board report-type address enabled?]
-  (send-message board [(pin-command report-type address) (if enabled? 1 0)]))
-
 (defn- take-with-timeout!
   [ch default millis f]
   (go 
@@ -179,108 +105,134 @@
   "Converts the raw digital values to keywords high or low."
   [raw-value] (if (= 1 raw-value) :high :low))
 
-(defrecord ^:private Board [port board-state read-ch write-ch mult-ch pub-ch publisher create-channel]
-  Firmata
+(defn send-message
+  "Sends an arbitrary message to the board.  Useful for I2C message,
+   which have user-defined data"
+  [board data]
+  (a/put! (:write-ch board) data)
+  board)
 
-  (close!
-   [this]
-   (a/close! write-ch)
-   (a/close! read-ch)
-   (spi/close! port)
-   nil)
+(defn close!
+  "Closes the connection to the board."
+ [board]
+ (a/close! (:write-ch board))
+ (a/close! (:read-ch board))
+ (spi/close! (:stream board))
+ nil)
 
-  (reset-board!
-    [this]
-    (send-message this m/SYSTEM_RESET))
+(defn reset-board!
+  "Sends the reset signal to the board"
+  [board]
+  (send-message board m/SYSTEM_RESET))
 
-  (version
-   [this]
-   (:board-version @board-state ))
+(defn version
+  "Returns the currently known version of the board"
+  [board]
+  (:board-version (deref (:board-state board))))
 
-  (firmware
-   [this]
-   (:board-firmware @board-state))
+(defn firmware
+  "Returns the currently known firmware information"
+  [board]
+  (:board-firmware (deref (:board-state board))))
 
-  (query-firmware
-   [this]
-   (send-message this [m/SYSEX_START m/REPORT_FIRMWARE m/SYSEX_END]))
+(defn query-firmware
+  "Query the firmware of the board."
+  [board]
+  (send-message board [m/SYSEX_START m/REPORT_FIRMWARE m/SYSEX_END]))
 
-  (query-capabilities
-   [this]
-   (send-message this [m/SYSEX_START m/CAPABILITY_QUERY m/SYSEX_END]))
+(defn query-capabilities
+  "Query the capabilities of the board."
+  [board]
+  (send-message board [m/SYSEX_START m/CAPABILITY_QUERY m/SYSEX_END]))
 
-  (query-version
-   [this]
-   (send-message this m/PROTOCOL_VERSION))
+(defn query-version
+  "Query the firmware version of the board."
+  [board]
+  (send-message board m/PROTOCOL_VERSION))
 
-  (query-analog-mappings
-   [this]
-   (send-message this [m/SYSEX_START m/ANALOG_MAPPING_QUERY m/SYSEX_END]))
+(defn query-analog-mappings
+  "Analog messages are numbered 0 to 15, which traditionally refer to the Arduino pins labeled A0, A1, A2, etc.
+   However, these pins are actually configured using \"normal\" pin numbers in the pin mode message, and when
+   those pins are uses for non-analog functions. The analog mapping query provides the information about which pins
+   (as used with Firmata's pin mode message) correspond to the analog channels"
+  [board]
+  (send-message board [m/SYSEX_START m/ANALOG_MAPPING_QUERY m/SYSEX_END]))
 
-  (query-pin-state
-   [this pin]
-   (assert (pin? pin) "must supply a valid pin value 0-127")
-   (send-message this [m/SYSEX_START m/PIN_STATE_QUERY pin m/SYSEX_END]))
+(defn query-pin-state
+  "Queries the pin state of a given pin (0-127) on the board"
+  [board pin]
+  (assert (pin? pin) "must supply a valid pin value 0-127")
+  (send-message board [m/SYSEX_START m/PIN_STATE_QUERY pin m/SYSEX_END]))
 
-  (set-pin-mode
-   [this pin mode]
-   (assert (pin? pin) "must supply a valid pin value 0-127")
-   (assert (mode mode-values) (str "must supply a valid mode: " (clojure.string/join ", " m/modes)))
-   (send-message this [m/SET_PIN_IO_MODE pin (mode mode-values)]))
+(defn set-pin-mode
+  "Sets the mode of a pin (0 to 127), one of: :input, :output, :analog, :pwm, :servo, :i2c"
+  [board pin mode]
+  (assert (pin? pin) "must supply a valid pin value 0-127")
+  (assert (mode mode-values) (str "must supply a valid mode: " (clojure.string/join ", " m/modes)))
+  (send-message board [m/SET_PIN_IO_MODE pin (mode mode-values)]))
 
-  (enable-analog-in-reporting
-   [this pin enabled?]
-   (assert (pin? pin 16) "must supply a valid pin value 0-15")
-   (enable-reporting this m/REPORT_ANALOG_PIN pin enabled?))
+(defn- enable-reporting
+  [board report-type address enabled?]
+  (send-message board [(pin-command report-type address) (if enabled? 1 0)]))
 
-  (enable-digital-port-reporting
-   [this pin enabled?]
-   (assert (pin? pin 16) "must supply a valid pin value 0-15")
-   (enable-reporting this m/REPORT_DIGITAL_PORT (port-of pin) enabled?))
+(defn enable-analog-in-reporting
+  "Enables 'analog in' reporting of a given pin (0-15)."
+  [board pin enabled?]
+  (assert (pin? pin 16) "must supply a valid pin value 0-15")
+  (enable-reporting board m/REPORT_ANALOG_PIN pin enabled?))
 
-  (set-digital
-   [this pin value]
-   (assert (pin? pin 16) "must supply a valid pin value 0-15")
+(defn enable-digital-port-reporting
+  "Enables digital port reporting on a given pin (0-15)."
+  [board pin enabled?]
+  (assert (pin? pin 16) "must supply a valid pin value 0-15")
+  (enable-reporting board m/REPORT_DIGITAL_PORT (port-of pin) enabled?))
 
-   (let [port (port-of pin)
-         pin-value (bit-shift-left 1 (bit-and pin 0x07))
-         current-port (get-in @board-state [:digital-out port])
-         next-port (if (= :high (high-low-value value))
-                     (bit-or current-port pin-value)
-                     (bit-and current-port (bit-not pin-value)))]
-     (swap! board-state assoc-in [:digital-out port] next-port)
-     (send-message this [(pin-command m/DIGITAL_IO_MESSAGE port) (lsb next-port) (msb next-port)])))
+(defn set-digital
+  "Writes the digital value (max of 2 bytes) to the given pin (0-15)."
+  [board pin value]
+  (assert (pin? pin 16) "must supply a valid pin value 0-15")
 
-  (set-analog
-   [this pin value]
-   (assert (pin? pin) "must supply a valid pin value 0-127")
-   (send-message this
-        (if (> pin 15)
-          [m/SYSEX_START m/EXTENDED_ANALOG pin (lsb value) (msb value) m/SYSEX_END]
-          [(pin-command m/ANALOG_IO_MESSAGE pin) (lsb value) (msb value)])))
+  (let [board-state (:board-state board)
+        port (port-of pin)
+        pin-value (bit-shift-left 1 (bit-and pin 0x07))
+        current-port (get-in @board-state [:digital-out port])
+        next-port (if (= :high (high-low-value value))
+                    (bit-or current-port pin-value)
+                    (bit-and current-port (bit-not pin-value)))]
+    (swap! board-state assoc-in [:digital-out port] next-port)
+    (send-message board [(pin-command m/DIGITAL_IO_MESSAGE port) (lsb next-port) (msb next-port)])))
 
-  (set-sampling-interval
-   [this interval]
-   (send-message this [m/SYSEX_START m/SAMPLING_INTERVAL (lsb interval) (msb interval) m/SYSEX_END]))
+(defn set-analog
+  "Writes the analog value (max of 2 bytes) to the given pin (0-127)."
+  [board pin value]
+  (assert (pin? pin) "must supply a valid pin value 0-127")
+  (send-message board
+       (if (> pin 15)
+         [m/SYSEX_START m/EXTENDED_ANALOG pin (lsb value) (msb value) m/SYSEX_END]
+         [(pin-command m/ANALOG_IO_MESSAGE pin) (lsb value) (msb value)])))
 
-  (send-message
-   [this data]
-   (a/put! write-ch data)
-   this)
+(defn set-sampling-interval
+  "The sampling interval sets how often analog data and i2c data is reported to the client.
+   The system default value is 19 milliseconds."
+  [board interval]
+  (send-message board [m/SYSEX_START m/SAMPLING_INTERVAL (lsb interval) (msb interval) m/SYSEX_END]))
 
-  (event-channel
-   [this]
-   (let [ec (create-channel)]
-     (a/tap mult-ch ec)
-     ec))
+(defn event-channel
+  "Returns a channel which provides all of the events that have been returned from the board."
+  [board]
+  (let [ec ((:create-channel board))]
+    (a/tap (:mult-ch board) ec)
+    ec))
 
-  (release-event-channel
-   [this channel]
-   (a/untap mult-ch channel))
+(defn release-event-channel
+  "Releases the channel"
+  [board channel]
+  (a/untap (:mult-ch board) channel))
 
-  (event-publisher
-   [this]
-   publisher))
+(defn event-publisher
+  "Returns a publisher which provides events by [:type :pin]"
+  [board]
+  (:publisher board))
 
 (defn- complete-board 
   "Completes board setup, after all the events are recieved"
@@ -332,9 +284,6 @@
             (a/put! result-ch  
               (complete-board board-state port create-channel read-ch))))))
 
-    ; This can be replaced with 
-    ; (take! result-ch callback)
-    ; for clojurescript
     #+clj (<!! result-ch)
     #+cljs (a/take! result-ch on-ready)
     ))
