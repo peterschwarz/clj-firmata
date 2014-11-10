@@ -63,8 +63,7 @@
                         (on-complete-data (js/Buffer buffer))
                         (buf-reset!))]
     (fn [data]
-      ; Todo; this seems a bit expensive, need to see if there may be a bug fix
-      (doseq [b (vec (aclone data))]
+      (doseq [b (vec (prim-seq data))]
         (when (not (= 0 (alength buffer) b))
           (.push buffer b)
           (let [first-byte (afirst buffer)
@@ -86,40 +85,25 @@
   (.write writer (make-buffer data))
   nil)
 
-(extend-type SerialPort
-  FirmataStream
+(defn- as-streamable [source close-fn]
+  (reify 
+    FirmataStream
+    (open! [this] this)
 
-  (open! [this] this)
+    (close! [this] (close-fn this) this)
 
-  (close! [this] (.close this) this)
+    (listen [this handler]
+      (on-data this handler))
 
-  (listen [this handler]
-    (on-data this handler))
-
-  (write [this data]
-    (write-data this data)))
+    (write [this data]
+      (write-data this data))))
 
 (defn create-serial-stream [port-name baud-rate on-connected]
   (let [serial-port (SerialPort. port-name #js {:baudrate baud-rate})]
-    (.on serial-port "open" #(on-connected serial-port))))
+    (.on serial-port "open" #(on-connected (as-streamable serial-port (memfn close))))))
 
 (def Socket (.-Socket (nodejs/require "net")))
 
-(extend-type Socket
-  FirmataStream
-
-  (open! [this] this)
-
-  (close! [this] 
-    (.end this) 
-    this)
-
-  (listen [this handler]
-    (on-data this handler))
-
-  (write [this data]
-    (write-data this data)))
-
 (defn create-socket-client-stream [host port on-connected]
   (let [socket (Socket.)]
-    (.connect socket port host #(on-connected socket))))
+    (.connect socket port host #(on-connected (as-streamable socket (memfn end))))))

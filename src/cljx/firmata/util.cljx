@@ -92,7 +92,7 @@
             (callback err nil)
             (callback nil 
               (first (filter arduino-port? 
-                (map #(.-comName %) (aclone ports)))))))))
+                (map #(.-comName %) (prim-seq ports)))))))))
 
       (callback "Unable to require 'serialport': This may be due to a missing npm dependency." nil))
     (catch js/Error e
