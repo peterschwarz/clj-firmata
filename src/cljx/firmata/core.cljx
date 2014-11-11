@@ -120,7 +120,7 @@
  (spi/close! (:stream board))
  nil)
 
-(defn reset-board!
+(defn reset-board
   "Sends the reset signal to the board"
   [board]
   (send-message board m/SYSTEM_RESET))

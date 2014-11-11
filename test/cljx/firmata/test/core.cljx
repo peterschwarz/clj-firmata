@@ -9,7 +9,7 @@
             [firmata.test.async-helpers :refer [get-event wait-for-it]]
             [firmata.test.mock-stream :refer [create-mock-stream receive-bytes is-open? last-write]]
             [firmata.test.board-helpers :refer [with-open-board]]
-            [firmata.core :refer [open-board event-channel reset-board! 
+            [firmata.core :refer [open-board event-channel reset-board
                                   version close! firmware query-firmware query-capabilities
                                   query-version query-analog-mappings query-pin-state
                                   set-pin-mode enable-analog-in-reporting enable-digital-port-reporting
@@ -172,7 +172,7 @@
     (with-open-board client (fn [board]
 
     (testing "reset board"
-      (reset-board! board)
+      (reset-board board)
       (wait-for-it (fn []
         (is (= [0xFF] (last-write client))))))
 
