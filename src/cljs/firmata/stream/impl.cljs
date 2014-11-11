@@ -90,13 +90,13 @@
     FirmataStream
     (open! [this] this)
 
-    (close! [this] (close-fn this) this)
+    (close! [this] (close-fn source) this)
 
-    (listen [this handler]
-      (on-data this handler))
+    (listen [_ handler]
+      (on-data source handler))
 
-    (write [this data]
-      (write-data this data))))
+    (write [_ data]
+      (write-data source data))))
 
 (defn create-serial-stream [port-name baud-rate on-connected]
   (let [serial-port (SerialPort. port-name #js {:baudrate baud-rate})]
