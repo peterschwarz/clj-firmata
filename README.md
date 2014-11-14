@@ -20,6 +20,8 @@ Connecting to a board is a simple as
 
 replacing `cu.usbmodemfa141` with the name of the appropriate serial port.
 
+An valid serial port of a connected arduino may be detected by using `firmata.util/detect-arduino-port.`  Currently, this only works on Mac OS X. 
+
 ### Communicating with the board.
 
 Performing simple queries on the board will result in events placed onto the board's `core.async` event channel.
@@ -85,6 +87,14 @@ This will result in the following events on the channel:
         (is (= :digital-msg (:type event)))
         (is (= 3 (:pin event)))
         (is (= :high (:value event)))
+
+By default, the pin value is returned as a key word, either `:high` or `:low`. This may be changed by using the `:from-raw-digital` option when opening the board.  For example:
+
+```
+(def board (open-serial-board "cu.usbmodemfa141" :from-raw-digital identity))
+```
+
+With this board instance, any read or report of a digital pin's HIGH/LOW state will be `1` or `0`.
 
 For convenience, the `firmata.receiver` namspace provides the function `on-digital-event`, which may be used to filter events with the `:digital-msg` type and to a specific pin.  For example:
 
