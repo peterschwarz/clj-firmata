@@ -8,7 +8,7 @@
 
 Add the following to your `project.clj`
 
-	[clj-firmata 2.0.0]
+	[clj-firmata 2.0.1-SNAPSHOT]
 
 For Clojurescript usage, see [here](doc/clojurescript.md)
 
