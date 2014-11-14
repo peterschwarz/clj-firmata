@@ -1,4 +1,4 @@
-(defproject clj-firmata "2.0.0-SNAPSHOT"
+(defproject clj-firmata "2.0.0"
   :description "clj-firmata provides access to Standard Firmata (http://firmata.org/) commands via clojure"
   :url "https://github.com/peterschwarz/clj-firmata"
   :license {:name "Eclipse Public License"
@@ -27,7 +27,6 @@
                              [lein-cloverage "1.0.2"]
                              [lein-cljsbuild "1.0.3"]
                              [com.cemerick/clojurescript.test "0.3.1"]
-                             ; [com.cemerick/clojurescript.test "0.3.2-SNAPSHOT"]
                              [lein-npm "0.4.0"]
                              [org.bodil/lein-noderepl "0.1.11"]]
                    :aliases {"cleantest" ["do" "clean," "cljx" "once," "test,"
