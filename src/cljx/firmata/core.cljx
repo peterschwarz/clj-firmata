@@ -9,7 +9,10 @@
             [clojure.core.async :as a :refer [go chan >! <! <!!]]
 
             #+cljs
-            [cljs.core.async    :as a :refer [chan >! <!]])
+            [cljs.core.async    :as a :refer [chan >! <!]]
+
+            #+cljs
+            [clojure.string])
   #+cljs
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
