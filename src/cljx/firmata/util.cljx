@@ -66,7 +66,7 @@
 (defn arduino-port?
   "Compares port name with known arduino port formats"
   [port-name]
-  (re-matches #"^(/dev/)?(tty|cu)\.usbmodem.*$" port-name)) ;; Older boards
+  (re-matches #"^(/dev/)?(tty|cu)(\.usbmodem|ACM).*$" port-name)) ;; Older boards
 
 #+clj
 (defn detect-arduino-port
