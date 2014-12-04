@@ -16,6 +16,7 @@ For Clojurescript usage, see [here](doc/clojurescript.md)
 
 Connecting to a board is a simple as
 
+    (use 'firmata.core)
     (def board (open-serial-board "cu.usbmodemfa141"))
 
 replacing `cu.usbmodemfa141` with the name of the appropriate serial port.
