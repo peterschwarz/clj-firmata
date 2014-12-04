@@ -72,12 +72,15 @@
     (is (arduino-port? "tty.usbmodem1234"))
     (is (arduino-port? "cu.usbmodem0121"))
     (is (arduino-port? "/dev/tty.usbmodem54321"))
-    (is (arduino-port? "/dev/cu.usbmodem0121")))
+    (is (arduino-port? "/dev/cu.usbmodem0121"))
+    (is (arduino-port? "/dev/ttyACM0"))
+    (is (arduino-port? "ttyACM1")))
 
   (testing "no matches"
     (is (nil? (arduino-port? "usbmodem1234")))
     (is (nil? (arduino-port? "not.usbmodem1234")))
-    (is (nil? (arduino-port? "/tmp/tty.usbmodem1234")))))
+    (is (nil? (arduino-port? "/tmp/tty.usbmodem1234")))
+    (is (nil? (arduino-port? "/dev/ttyS1")))))
 
 
 #+cljs
