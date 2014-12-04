@@ -1,4 +1,4 @@
-(defproject clj-firmata "2.0.1"
+(defproject clj-firmata "2.0.2-SNAPSHOT"
   :description "clj-firmata provides access to Standard Firmata (http://firmata.org/) commands via clojure"
   :url "https://github.com/peterschwarz/clj-firmata"
   :license {:name "Eclipse Public License"
