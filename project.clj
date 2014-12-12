@@ -22,8 +22,7 @@
   :scm {:name "git"
         :url "https://github.com/peterschwarz/clj-firmata"}
 
-  :profiles {:dev {:plugins [[com.keminglabs/cljx "0.4.0" 
-                                 :exclusions [org.clojure/clojure]]
+  :profiles {:dev {:plugins [[com.keminglabs/cljx "0.5.0"]
                              [lein-cloverage "1.0.2"]
                              [lein-cljsbuild "1.0.3"]
                              [com.cemerick/clojurescript.test "0.3.1"]
@@ -33,7 +32,7 @@
                                           "npm" "install," "cljsbuild" "test"]
                              "cljstest" ["do" "cljx" "once," "cljsbuild" "test"]}}}
 
-  :hooks [cljx.hooks]
+  :prep-tasks [["cljx" "once"]]
 
   :node-dependencies [[serialport "1.4.6"]]
   :npm-root "target"
