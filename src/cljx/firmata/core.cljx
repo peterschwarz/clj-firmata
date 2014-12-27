@@ -6,7 +6,7 @@
             [firmata.util :as util :refer [lsb msb]]
 
             #+clj 
-            [clojure.core.async :as a :refer [go chan >! <! <!!]]
+            [clojure.core.async :as a :refer [go go-loop chan >! <! <!!]]
 
             #+cljs
             [cljs.core.async    :as a :refer [chan >! <!]]
@@ -14,7 +14,7 @@
             #+cljs
             [clojure.string])
   #+cljs
-  (:require-macros [cljs.core.async.macros :refer [go]]))
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 ; Pin Modes
 (def ^{:private true} mode-values (zipmap m/modes (range 0 (count m/modes))))
@@ -52,16 +52,21 @@
 
 (defn- read-event
   [board in]
-  (let [message (read! in)]
-    (cond
-     (= m/PROTOCOL_VERSION message) (let [version (read-version in)]
-                                    {:type :protocol-version, :version version})
-     (= m/SYSEX_START message) (read-sysex-event in)
-     (m/is-digital? message) (read-digital board message in)
-     (m/is-analog? message)  (read-analog message in)
+  (try 
+    (let [message (read! in)]
+      (cond
+       (= m/PROTOCOL_VERSION message) (let [version (read-version in)]
+                                      {:type :protocol-version, :version version})
+       (= m/SYSEX_START message) (read-sysex-event in)
+       (m/is-digital? message) (read-digital board message in)
+       (m/is-analog? message)  (read-analog message in)
 
-     :else {:type :unknown-msg
-            :value message})))
+       :else {:type :unknown-msg
+              :value message}))
+    (catch #+clj Exception #+cljs js/Error e
+      (println e)
+      {:type :error
+       :exception e})))
 
 (defn- firmata-handler
   [board]
@@ -120,8 +125,11 @@
  [board]
  (a/close! (:write-ch board))
  (a/close! (:read-ch board))
- (spi/close! (:stream board))
- nil)
+ (try 
+  (spi/close! (:stream board))
+  nil
+  (catch #+clj Exception #+cljs js/Error e
+    e)))
 
 (defn reset-board
   "Sends the reset signal to the board"
@@ -237,6 +245,26 @@
   [board]
   (:publisher board))
 
+(defn- safe-write 
+  "Writes to the given stream, catching any exceptions.  
+  If one is thrown while writing, it is returned."
+  [stream data]
+  (try 
+    (spi/write stream data)
+    nil
+    (catch #+clj Exception #+cljs js/Error e
+      ; TODO: Remove or log
+      (println e)
+      e)))
+
+(defn- run-write-loop [stream write-ch error-ch]
+   (go-loop []
+      (when-let [data (<! write-ch)]
+        (if-let [exception (safe-write stream data)]
+          (>! error-ch {:type :error
+                        :exception exception})
+            (recur)))))
+
 (defn- complete-board 
   "Completes board setup, after all the events are recieved"
   [board-state port create-channel read-ch]
@@ -247,10 +275,7 @@
 
     (a/tap mult-ch pub-ch)
 
-    (go (loop []
-          (when-let [data (<! write-ch)]
-            (spi/write port data)
-            (recur))))
+    (run-write-loop port write-ch read-ch)
 
     (->Board port board-state read-ch write-ch mult-ch pub-ch publisher create-channel)))
 

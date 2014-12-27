@@ -6,16 +6,18 @@
   #+cljs 
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
+(def event-wait-time 100)
+
 #+clj
 (defn get-event
   [ch f]
-  (f (first (alts!! [ch (timeout 100)]))))
+  (f (first (alts!! [ch (timeout event-wait-time)]))))
 
 #+cljs
 (defn get-event
   [ch f]
   (go 
-    (let [x (first (a/alts! [ch (a/timeout 100)]))]
+    (let [x (first (a/alts! [ch (a/timeout event-wait-time)]))]
       (f x))))
 
 (defn wait-for-it 
