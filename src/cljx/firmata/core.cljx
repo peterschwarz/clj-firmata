@@ -91,8 +91,8 @@
 (defn- take-with-timeout!
   [ch default millis f]
   (go 
-    (let [x (or (first (a/alts! [ch (a/timeout millis)])) default)]
-      (f x))))
+    (let [[v source-chan] (a/alts! [ch (a/timeout millis)])]
+      (f (or v default)))))
 
 (defn- high-low-value 
   "Takes the possible input values from the set [:high :low 1 0 'high 'low \\1 \\0]
