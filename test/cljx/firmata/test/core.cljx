@@ -7,7 +7,7 @@
             #+cljs
             [cljs.nodejs :as nodejs]
             [firmata.test.async-helpers :refer [get-event wait-for-it]]
-            [firmata.test.mock-stream :refer [create-mock-stream receive-bytes is-open? last-write]]
+            [firmata.test.mock-stream :refer [create-mock-stream receive-bytes is-open? last-write throw-on-read]]
             [firmata.test.board-helpers :refer [with-open-board]]
             [firmata.core :refer [open-board event-channel reset-board
                                   version close! firmware query-firmware query-capabilities
@@ -143,6 +143,23 @@
         (is (= [0x68] (:value event))))))
 
  )))))
+
+
+#+clj
+(deftest test-exception-events
+
+  (let [client (create-mock-stream)]
+    (with-open-board client (fn [board]
+      (let [evt-chan (event-channel board)
+            exception (java.lang.RuntimeException. "Test Exception")]
+        (throw-on-read client exception)
+
+        (get-event evt-chan (fn [event]
+          (is (= :error (:type event)))
+          (is (= exception (:exception event)))
+          
+          )))))))
+
 
 (deftest ^:async test-read-events-alternate-from-raw
 

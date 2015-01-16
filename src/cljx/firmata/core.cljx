@@ -64,7 +64,6 @@
        :else {:type :unknown-msg
               :value message}))
     (catch #+clj Exception #+cljs js/Error e
-      (println e)
       {:type :error
        :exception e})))
 
@@ -253,8 +252,6 @@
     (spi/write stream data)
     nil
     (catch #+clj Exception #+cljs js/Error e
-      ; TODO: Remove or log
-      (println e)
       e)))
 
 (defn- run-write-loop [stream write-ch error-ch]

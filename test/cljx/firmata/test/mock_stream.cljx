@@ -1,7 +1,7 @@
 (ns firmata.test.mock-stream
   (:require [firmata.stream.spi :refer [FirmataStream open! close! write listen]])
   #+clj 
-  (:import [java.io ByteArrayInputStream]
+  (:import [java.io ByteArrayInputStream InputStream]
            [java.nio ByteBuffer]))
 
 (defprotocol Bytable
@@ -33,6 +33,17 @@
   (let [buffer (ByteBuffer/allocate 256)]
     (reduce (fn [^ByteBuffer b ^bytes value] (.put b (to-bytes value))) buffer more)
     (ByteArrayInputStream. (.array buffer))))
+
+#+clj
+(defn create-exception-stream
+  [exception]
+  (proxy [ InputStream] []
+      (read
+        ([] (throw exception))
+        ([byte-arr]
+           (proxy-super read byte-arr))
+        ([byte-arr off len]
+           (proxy-super read byte-arr off len)))))
 
 #+cljs
 (defn create-byte-stream
@@ -66,6 +77,10 @@
 
 (defn receive-bytes [client & more]
   ((state client :handler) (apply create-byte-stream more)))
+
+#+clj
+(defn throw-on-read [client exception]
+  ((state client :handler) (create-exception-stream exception)))
 
 (defn last-write [client]
   (-> client :last-write deref vector flatten vec))
