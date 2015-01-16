@@ -7,7 +7,8 @@
             #+cljs
             [cljs.nodejs :as nodejs]
             [firmata.test.async-helpers :refer [get-event wait-for-it]]
-            [firmata.test.mock-stream :refer [create-mock-stream receive-bytes is-open? last-write throw-on-read]]
+            [firmata.test.mock-stream :refer [create-mock-stream receive-bytes is-open? last-write 
+                                              #+clj throw-on-read throw-on-write]]
             [firmata.test.board-helpers :refer [with-open-board]]
             [firmata.core :refer [open-board event-channel reset-board
                                   version close! firmware query-firmware query-capabilities
@@ -16,7 +17,7 @@
                                   set-digital set-analog set-sampling-interval]])
   #+cljs 
   (:require-macros [cemerick.cljs.test
-                       :refer (is deftest with-test run-tests testing test-var)]))
+                       :refer (is deftest with-test run-tests testing test-var done)]))
 
 
 (deftest ^:async test-read-events
@@ -146,7 +147,7 @@
 
 
 #+clj
-(deftest test-exception-events
+(deftest test-exception-read-events
 
   (let [client (create-mock-stream)]
     (with-open-board client (fn [board]
@@ -160,6 +161,24 @@
           
           )))))))
 
+(deftest ^:async test-exception-write-events
+  (let [client (create-mock-stream)]
+    (with-open-board client (fn [board]
+      (let [evt-chan (event-channel board)
+            exception 
+              #+clj  (java.lang.RuntimeException. "Test Exception")
+              #+cljs (js/Error. "Test Exception")]
+
+        (throw-on-write client exception)
+
+        ; send any message
+        (reset-board board)
+
+        (wait-for-it #(get-event evt-chan (fn [event]
+          (is (= :error (:type event)))
+          (is (= exception (:exception event)))
+          #+cljs (done)
+          ))))))))
 
 (deftest ^:async test-read-events-alternate-from-raw
 

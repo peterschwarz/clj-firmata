@@ -17,11 +17,11 @@
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 ; Pin Modes
-(def ^{:private true} mode-values (zipmap m/modes (range 0 (count m/modes))))
+(def ^:private mode-values (zipmap m/modes (range 0 (count m/modes))))
 
-(def ^{:private true} MAX-PORTS 16)
+(def ^:private MAX-PORTS 16)
 
-(defrecord ^:private Board [stream board-state read-ch write-ch mult-ch pub-ch publisher create-channel])
+(defrecord ^:private Board [stream ^clojure.lang.Atom board-state read-ch write-ch mult-ch pub-ch publisher create-channel])
 
 (defn- read-version
   [in]
@@ -255,6 +255,8 @@
       e)))
 
 (defn- run-write-loop [stream write-ch error-ch]
+  "Run the write loop, which pulls data from the write channel, and 
+  writes it, in sequence, to the stream."
    (go-loop []
       (when-let [data (<! write-ch)]
         (if-let [exception (safe-write stream data)]

@@ -37,7 +37,7 @@
 #+clj
 (defn create-exception-stream
   [exception]
-  (proxy [ InputStream] []
+  (proxy [InputStream] []
       (read
         ([] (throw exception))
         ([byte-arr]
@@ -50,7 +50,7 @@
   [& more]
   ((.-concat js/Buffer) (to-array (map #(to-bytes %) more))))
 
-(defrecord MockClientStream [state last-write]
+(defrecord MockClientStream [^clojure.lang.Atom state last-write]
     FirmataStream
     (open! [this] 
       (swap! state  assoc :is-open? true)
@@ -67,7 +67,9 @@
       nil)
     
     (write [_ data] 
-      (reset! last-write data)))
+      (if-let [ex (:exception @state)]
+        (throw ex)
+        (reset! last-write data))))
 
 (defn create-mock-stream []
     (->MockClientStream (atom {}) (atom nil)))
@@ -81,6 +83,9 @@
 #+clj
 (defn throw-on-read [client exception]
   ((state client :handler) (create-exception-stream exception)))
+
+(defn throw-on-write [client exception]
+  (swap! (:state client) assoc :exception exception))
 
 (defn last-write [client]
   (-> client :last-write deref vector flatten vec))
