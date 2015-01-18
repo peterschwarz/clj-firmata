@@ -64,8 +64,7 @@
        :else {:type :unknown-msg
               :value message}))
     (catch #+clj Exception #+cljs js/Error e
-      {:type :error
-       :exception e})))
+      e)))
 
 (defn- firmata-handler
   [board]
@@ -260,8 +259,7 @@
    (go-loop []
       (when-let [data (<! write-ch)]
         (if-let [exception (safe-write stream data)]
-          (>! error-ch {:type :error
-                        :exception exception})
+          (>! error-ch exception)
             (recur)))))
 
 (defn- complete-board 

@@ -156,8 +156,7 @@
         (throw-on-read client exception)
 
         (get-event evt-chan (fn [event]
-          (is (= :error (:type event)))
-          (is (= exception (:exception event)))
+          (is (= exception event))
           
           )))))))
 
@@ -175,8 +174,7 @@
         (reset-board board)
 
         (wait-for-it #(get-event evt-chan (fn [event]
-          (is (= :error (:type event)))
-          (is (= exception (:exception event)))
+          (is (= exception event))
           #+cljs (done)
           ))))))))
 
