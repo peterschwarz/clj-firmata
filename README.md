@@ -117,17 +117,19 @@ By default, the pin value is returned as a key word, either `:high` or `:low`. T
 
 With this board instance, any read or report of a digital pin's HIGH/LOW state will be `1` or `0`.
 
-For convenience, the `firmata.receiver` namspace provides the function `on-digital-event`, which may be used to filter events with the `:digital-msg` type and to a specific pin.  For example:
+For convenience, the `firmata.async` namspace provides the function `digital-event-chan`, which creates a channel with filtered events with the `:digital-msg` type and a specific pin.  For example:
 
 ```clojure
-(def receiver (on-digital-event board 3
-  #(if (= :high (:value %)) "Pressed" "Released")))
+(let [ch (digital-event-chan board 3)]
+  (go-loop [evt (<! ch)]
+    (if (= :high (:value evt)) "Pressed" "Released")))
 ```
 
-This receiver can be stopped like so:
+This ch can be closed like any other:
 
 ```clojure
-(stop-receiver receiver)
+; Assuming (require '[clojure.core.async :as a])
+(a/close! receiver)
 ```
 
 Similarly for analog in reporting (on `A0` in this example):
@@ -146,8 +148,11 @@ will result in the following events on the channel:
     (is (= 1000 (:value event)))
 ```
 
-Like `on-digital-event`, there is an `on-analog-event` which will provide the events to a particular analog pin.
+Like `digital-event-chan`, there is an `analog-event-chan` which will provide the events to a particular analog pin.
 
+### Exceptions and Error handling
+
+Any exceptions that occur while reading or writing to the board will be passed forwarded along the event channel. 
 
 ### Close the connection to a Board
 

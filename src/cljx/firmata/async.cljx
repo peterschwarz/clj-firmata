@@ -35,11 +35,15 @@
       (take! out-ch fn1-handler))))
 
 #+clj
-(defn- is-event? [evt] 
+(defn is-event?
+  "predicate for a firmata event"
+  [evt]
   (= (type evt) clojure.lang.PersistentArrayMap))
 
 #+cljs
-(defn- is-event? [evt] 
+(defn is-event?
+  "predicate for a firmata event"
+  [evt]
   (= (type evt) cljs.core/PersistentArrayMap))
 
 (defn digital-event-chan 
