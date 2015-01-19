@@ -1,74 +1,47 @@
 (ns firmata.receiver
-  (:require [firmata.core :refer [event-channel event-publisher release-event-channel]]
+  (:require [firmata.core :refer [event-channel release-event-channel]]
+            [firmata.async :refer [digital-event-chan analog-event-chan]]
             #+clj
-            [clojure.core.async :as a :refer [go <!]]
+            [clojure.core.async :as a :refer [go go-loop <!]]
             #+cljs
             [cljs.core.async    :as a :refer [<!]])
   #+cljs
-  (:require-macros [cljs.core.async.macros :refer [go]]))
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 (defprotocol EventHandler
   (stop-receiver! [handler] "Stops receiving events on a given handler"))
-
-(defn- on-channel-event-with-prev
-  [channel event-handler]
-  (go
-   (loop [prev nil
-          event (<! channel)]
-     (when event
-       (event-handler event prev)
-       (recur event
-              (<! channel))))))
-
-(defn- on-channel-event
-  [channel event-handler]
-  (on-channel-event-with-prev channel (fn [event prev] (event-handler event))))
 
 (defn on-event
   "Add a general event receiver. `event-handler` takes should take one argument: event."
   [board event-handler]
   (let [ch (event-channel board)]
-    (on-channel-event ch event-handler)
+    (go-loop [evt (<! ch)]
+      (event-handler evt))
     (reify EventHandler
       (stop-receiver!
        [this]
        (release-event-channel board ch)))))
 
-(defn- subscription-chan
-  [board target]
-  (let [filtered-ch (a/chan)]
-    (a/sub (event-publisher board) target filtered-ch)
-    filtered-ch))
-
 (defn- unsub-handler
-  [board channel topic]
+  [channel]
   (reify EventHandler
     (stop-receiver!
      [this]
-     (a/unsub (event-publisher board) topic channel))))
+     (a/close! channel))))
+
+(defn- on-subscription-event
+  [ch event-handler]
+  (go-loop [evt (<! ch)]
+    (event-handler evt))
+  (unsub-handler ch))
 
 (defn on-digital-event
   "Creates a receiver for digital events on a given pin. `event-handler` takes should take one argument: event."
   [board digital-pin event-handler]
-  (let [topic [:digital-msg digital-pin]
-        filtered-ch (subscription-chan board topic)]
-    (on-channel-event filtered-ch event-handler)
-    (unsub-handler board filtered-ch topic)))
-
-(def ^:private MAX_VAL 
-  #+clj Integer/MAX_VALUE
-  #+cljs 9223372036854775807)
+  (on-subscription-event (digital-event-chan board digital-pin) event-handler))
 
 (defn on-analog-event
   "Create a receiver for analog events on a given pin. `event-handler` takes should take one argument: event."
   ([board analog-pin event-handler] (on-analog-event board analog-pin event-handler 5))
   ([board analog-pin event-handler delta]
-  (let [topic [:analog-msg analog-pin]
-        filtered-ch (subscription-chan board topic)]
-    (on-channel-event-with-prev
-     filtered-ch
-     (fn [event prev]
-       (when (< delta (Math/abs (- (:value prev MAX_VAL) (:value event))))
-         (event-handler event))))
-    (unsub-handler board filtered-ch topic))))
-
+  (on-subscription-event (analog-event-chan board analog-pin :delta delta) event-handler)))
