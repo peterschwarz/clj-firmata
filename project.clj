@@ -24,9 +24,9 @@
 
   :profiles {:dev {:plugins [[com.keminglabs/cljx "0.5.0"]
                              [lein-cloverage "1.0.2"]
-                             [lein-cljsbuild "1.0.3"]
-                             [com.cemerick/clojurescript.test "0.3.2"]
-                             [lein-npm "0.4.0"]]
+                             [lein-cljsbuild "1.0.4"]
+                             [com.cemerick/clojurescript.test "0.3.3"]
+                             [lein-npm "0.5.0"]]
                    :aliases {"cleantest" ["do" "clean," "cljx" "once," "test,"
                                           "npm" "install," "cljsbuild" "test"]
                              "cljstest" ["do" "cljx" "once," "cljsbuild" "test"]}}}
