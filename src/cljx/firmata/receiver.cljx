@@ -14,14 +14,19 @@
   "Deprecated" 
   (stop-receiver! [handler] "Stops receiving events on a given handler"))
 
+(defn- evt-loop [ch event-handler]
+  (go-loop [evt (<! ch)]
+    (when evt
+      (event-handler evt)
+      (recur (<! ch)))))
+
 (defn on-event
   "Deprecated
 
   Add a general event receiver. `event-handler` takes should take one argument: event."
   [board event-handler]
   (let [ch (event-channel board)]
-    (go-loop [evt (<! ch)]
-      (event-handler evt))
+    (evt-loop ch event-handler)
     (reify EventHandler
       (stop-receiver!
        [this]
@@ -36,8 +41,7 @@
 
 (defn- on-subscription-event
   [ch event-handler]
-  (go-loop [evt (<! ch)]
-    (event-handler evt))
+  (evt-loop ch event-handler)
   (unsub-handler ch))
 
 (defn on-digital-event
