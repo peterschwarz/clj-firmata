@@ -281,8 +281,8 @@
   The buffer size for the events may be set with the option :event-buffer size
   (default value 1024)."
   [stream #+cljs on-ready
-    & {:keys [event-buffer-size from-raw-digital warmup-time]
-       :or {event-buffer-size 1024 from-raw-digital to-keyword warmup-time 5000}}]
+    & {:keys [event-buffer-size from-raw-digital warmup-time reset-on-connect?]
+       :or {event-buffer-size 1024 from-raw-digital to-keyword warmup-time 5000 reset-on-connect? false}}]
   (assert from-raw-digital ":from-raw-digital may not be nil")
   (let [board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
                            :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})
@@ -293,21 +293,26 @@
         port (spi/open! stream)
         result-ch (chan 1)]
 
-    (spi/listen port (firmata-handler {:state board-state 
-                                      :channel read-ch 
-                                      :from-raw-digital from-raw-digital}))
+    (go 
+      (when reset-on-connect?
+        (spi/write port m/SYSTEM_RESET)
+        (a/timeout 100)) ; wait for the reset...
 
-    ; Need to pull these values before wiring up the remaining channels, otherwise, they get lost
-    (take-with-timeout! read-ch {:type :protocol-version :version "Unknown"} warmup-time
-      (fn [version-event] 
-        (swap! board-state assoc :board-version (:version version-event))
+      (spi/listen port (firmata-handler {:state board-state 
+                                         :channel read-ch 
+                                         :from-raw-digital from-raw-digital}))
 
-        (take-with-timeout! read-ch  {:name "Unknown" :version "Unknown"} warmup-time
-          (fn [firmware-event]
-            (swap! board-state assoc :board-firmware (dissoc firmware-event :type))
+      ; Need to pull these values before wiring up the remaining channels, otherwise, they get lost
+      (take-with-timeout! read-ch {:type :protocol-version :version "Unknown"} warmup-time
+        (fn [version-event] 
+          (swap! board-state assoc :board-version (:version version-event))
 
-            (a/put! result-ch  
-              (complete-board board-state port create-channel read-ch))))))
+          (take-with-timeout! read-ch  {:name "Unknown" :version "Unknown"} warmup-time
+            (fn [firmware-event]
+              (swap! board-state assoc :board-firmware (dissoc firmware-event :type))
+
+              (a/put! result-ch  
+                (complete-board board-state port create-channel read-ch)))))))
 
     #+clj (<!! result-ch)
     #+cljs (a/take! result-ch on-ready)
@@ -319,10 +324,12 @@
   The buffer size for the events may be set with the option :event-buffer size
   (default value 1024)."
   [port-name #+cljs on-ready
-   & {:keys [baud-rate event-buffer-size from-raw-digital]
-      :or {baud-rate 57600 event-buffer-size 1024 from-raw-digital to-keyword}}]
+   & {:keys [baud-rate event-buffer-size from-raw-digital reset-on-connect?]
+      :or {baud-rate 57600 event-buffer-size 1024 from-raw-digital to-keyword reset-on-connect? false}}]
     #+clj
-    (open-board (st/create-serial-stream port-name baud-rate) :event-buffer-size event-buffer-size :from-raw-digital from-raw-digital)
+    (open-board (st/create-serial-stream port-name baud-rate) 
+                :event-buffer-size event-buffer-size :from-raw-digital from-raw-digital
+                :reset-on-connect? reset-on-connect?)
     #+cljs 
     (st/create-serial-stream port-name baud-rate 
       #(open-board % on-ready :event-buffer-size event-buffer-size :from-raw-digital from-raw-digital)))
@@ -342,4 +349,5 @@
               #(open-board % on-ready
                   :warmup-time 0
                   :event-buffer-size event-buffer-size
-                  :from-raw-digital from-raw-digital)))
+                  :from-raw-digital from-raw-digital
+                  :reset-on-connect? false)))

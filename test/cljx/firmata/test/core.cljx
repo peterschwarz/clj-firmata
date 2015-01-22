@@ -363,14 +363,22 @@
         (is (= [0xF0 0x7A 0x68 0x7 0xF7] (last-write client))))))
  ))))
 
-(deftest test-board-close
+(deftest ^:async test-board-close
   (let [client (create-mock-stream)]
     (with-open-board client (fn [board]
 
       (close! board)
 
-      (is (not (is-open? client)))))))
+      (is (not (is-open? client)))
+      #+cljs (done) ))))
 
+(deftest ^:async test-reset-on-connect
+  (let [client (create-mock-stream)]
+    (with-open-board client [:reset-on-connect? true] (fn [board]
+
+      (is (= [0xFF] (last-write client)))
+       
+      #+cljs (done) ))))
 
 #+cljs 
 (do 
