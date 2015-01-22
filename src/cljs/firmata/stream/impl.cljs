@@ -102,8 +102,14 @@
   (let [serial-port (SerialPort. port-name #js {:baudrate baud-rate})]
     (.on serial-port "open" #(on-connected (as-streamable serial-port (memfn close))))))
 
-(def Socket (.-Socket (nodejs/require "net")))
+(def ^:private net (nodejs/require "net"))
+(def ^:private Socket (.-Socket net))
 
 (defn create-socket-client-stream [host port on-connected]
   (let [socket (Socket.)]
     (.connect socket port host #(on-connected (as-streamable socket (memfn end))))))
+
+(defn create-socket-server-stream [host port on-connected]
+  (let [server (.createServer net #(on-connected (as-streamable % (memfn end))))]
+    (.listen server port host)
+    server))
