@@ -375,14 +375,14 @@
 
   Options:
 
-  :host - the server host (defaults to 'localhost')
+  :host - the server host (defaults to '0.0.0.0')
   :event-buffer-size - the number of messages buffered on read (defaults to 1024)
   :from-raw-digital - a function for converting the raw 1/0 value of digital pin to a useful value (defaults to keywords :high/low)
   :warmup-time - the time to wait for the board to 'settle' (defaults to 5 sec)
   :reset-on-connect? - indicates whether or not a reset message should be set to the board during warmup (defaults to false)"
   [port on-connected 
    & {:keys [host event-buffer-size from-raw-digital]
-      :or   {host "localhost" event-buffer-size 1024 from-raw-digital to-keyword}}]
+      :or   {host "0.0.0.0" event-buffer-size 1024 from-raw-digital to-keyword}}]
   (st/create-socket-server-stream host port (fn [client]
     (a/take! (open-board-chan client :event-buffer-size event-buffer-size
                                      :from-raw-digital from-raw-digital)
