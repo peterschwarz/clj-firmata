@@ -259,8 +259,10 @@
    (go-loop []
       (when-let [data (<! write-ch)]
         (if-let [exception (safe-write stream data)]
-          (>! error-ch exception)
-            (recur)))))
+          (do
+            (>! error-ch exception)
+            (a/close! write-ch))
+          (recur)))))
 
 (defn- complete-board 
   "Completes board setup, after all the events are recieved"
