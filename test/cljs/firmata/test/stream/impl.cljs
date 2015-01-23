@@ -12,8 +12,9 @@
 
 (deftest test-preparsing
   (let [emit-buffer (atom [])
+        error-atom (atom nil)
         on-complete-data #(swap! emit-buffer conj %)
-        preparser (impl/create-preparser on-complete-data)]
+        preparser (impl/create-preparser on-complete-data error-atom)]
       
       (testing "Zero should emit nothing"
         (preparser (create-byte-stream  0))
@@ -44,6 +45,14 @@
 
         (is (= [[0xF0 0x79 2 3 97 98 99 0xF7]]
                (->vec @emit-buffer))))
+      
+      (reset! emit-buffer [])
+
+      (testing "errors"
+        (reset! error-atom "an error")
+
+        (preparser (create-byte-stream 0))
+        (is (= [(impl/ErrorReader. "an error")] @emit-buffer)))
 
       ))
 

@@ -40,6 +40,11 @@
           _ (aset this "__current-index" (inc current-index))]
       value)))
 
+(defrecord ErrorReader [error]
+  ByteReader
+  (read! [_]
+    (throw error)))
+
 (def ^:private SerialPort 
   (try
     (.-SerialPort (nodejs/require "serialport"))
@@ -56,13 +61,15 @@
 (defn- valid-cmd? [b]
   (or (= PROTOCOL_VERSION b) (is-digital? b) (is-analog? b)))
 
-(defn create-preparser [on-complete-data] 
+(defn create-preparser [on-complete-data error-atom] 
   (let [buffer (make-array 0)
         buf-reset! #(set! (.-length buffer) 0)
         emit-and-clear (fn [] 
                         (on-complete-data (js/Buffer buffer))
                         (buf-reset!))]
     (fn [data]
+      (when @error-atom
+        (on-complete-data (ErrorReader. @error-atom)))
       (doseq [b (vec (prim-seq data))]
         (when (not (= 0 (alength buffer) b))
           (.push buffer b)
@@ -76,8 +83,8 @@
               (not (or (= SYSEX_START first-byte) (valid-cmd? first-byte))) ;; out of sync
                 (buf-reset!))))))))
 
-(defn- on-data [listenable handler]
-  (let [preparser (create-preparser handler)]
+(defn- on-data [listenable handler error-atom]
+  (let [preparser (create-preparser handler error-atom)]
     (.on listenable "data" preparser))
   nil)
 
@@ -86,24 +93,37 @@
   nil)
 
 (defn- as-streamable [source close-fn]
-  (reify 
-    FirmataStream
-    (open! [this] this)
+  (let [last-error (atom nil)]
+    (.on source "error" #(reset! last-error %))
 
-    (close! [this] (close-fn source) this)
+    (reify 
+      FirmataStream
+      (open! [this] this)
 
-    (listen [_ handler]
-      (on-data source handler))
+      (close! [this] (close-fn source) this)
 
-    (write [_ data]
-      (write-data source data))))
+      (listen [_ handler]
+        (on-data source handler last-error))
+
+      (write [_ data]
+        (if-not @last-error
+          (write-data source data)
+          (throw @last-error))))))
 
 (defn create-serial-stream [port-name baud-rate on-connected]
   (let [serial-port (SerialPort. port-name #js {:baudrate baud-rate})]
     (.on serial-port "open" #(on-connected (as-streamable serial-port (memfn close))))))
 
-(def Socket (.-Socket (nodejs/require "net")))
+(def ^:private net (nodejs/require "net"))
+(def ^:private Socket (.-Socket net))
 
 (defn create-socket-client-stream [host port on-connected]
   (let [socket (Socket.)]
     (.connect socket port host #(on-connected (as-streamable socket (memfn end))))))
+
+(defn create-socket-server-stream [host port on-connected]
+  (let [server (.createServer net #(on-connected (as-streamable % (memfn end))))]
+    (.listen server port host)
+    ; TODO: This should log; here to handle errors
+    (.on server "error" #(println (js->clj %)))
+    server))

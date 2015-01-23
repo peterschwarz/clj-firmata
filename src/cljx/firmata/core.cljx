@@ -259,8 +259,10 @@
    (go-loop []
       (when-let [data (<! write-ch)]
         (if-let [exception (safe-write stream data)]
-          (>! error-ch exception)
-            (recur)))))
+          (do
+            (>! error-ch exception)
+            (a/close! write-ch))
+          (recur)))))
 
 (defn- complete-board 
   "Completes board setup, after all the events are recieved"
@@ -276,11 +278,8 @@
 
     (->Board port board-state read-ch write-ch mult-ch pub-ch publisher create-channel)))
 
-(defn open-board
-  "Opens a connection to a board over a given FirmataStream.
-  The buffer size for the events may be set with the option :event-buffer size
-  (default value 1024)."
-  [stream #+cljs on-ready
+(defn- open-board-chan
+  [stream 
     & {:keys [event-buffer-size from-raw-digital warmup-time reset-on-connect?]
        :or {event-buffer-size 1024 from-raw-digital to-keyword warmup-time 5000 reset-on-connect? false}}]
   (assert from-raw-digital ":from-raw-digital may not be nil")
@@ -314,15 +313,32 @@
               (a/put! result-ch  
                 (complete-board board-state port create-channel read-ch)))))))
 
+   result-ch))
+
+(defn open-board
+  "Opens a connection to a board over a given FirmataStream.
+
+  Options:
+
+  :event-buffer-size - the number of messages buffered on read (defaults to 1024)
+  :from-raw-digital - a function for converting the raw 1/0 value of digital pin to a useful value (defaults to keywords :high/low)
+  :warmup-time - the time to wait for the board to 'settle' (defaults to 5 sec)
+  :reset-on-connect? - indicates whether or not a reset message should be set to the board during warmup (defaults to false)"
+  [stream #+cljs on-ready & args]
+  (let [result-ch (apply open-board-chan (conj args stream))]
     #+clj (<!! result-ch)
-    #+cljs (a/take! result-ch on-ready)
-    ))
+    #+cljs (a/take! result-ch on-ready)))
 
 (defn open-serial-board
   "Opens a connection to a board at a given port name.
-  The baud rate may be set with the option :baud-rate (default value 57600).
-  The buffer size for the events may be set with the option :event-buffer size
-  (default value 1024)."
+
+  Options:
+
+  :baud-rate - the serial baud rate (defaults to 576000)
+  :event-buffer-size - the number of messages buffered on read (defaults to 1024)
+  :from-raw-digital - a function for converting the raw 1/0 value of digital pin to a useful value (defaults to keywords :high/low)
+  :warmup-time - the time to wait for the board to 'settle' (defaults to 5 sec)
+  :reset-on-connect? - indicates whether or not a reset message should be set to the board during warmup (defaults to false)"
   [port-name #+cljs on-ready
    & {:keys [baud-rate event-buffer-size from-raw-digital reset-on-connect?]
       :or {baud-rate 57600 event-buffer-size 1024 from-raw-digital to-keyword reset-on-connect? false}}]
@@ -332,12 +348,17 @@
                 :reset-on-connect? reset-on-connect?)
     #+cljs 
     (st/create-serial-stream port-name baud-rate 
-      #(open-board % on-ready :event-buffer-size event-buffer-size :from-raw-digital from-raw-digital)))
+      #(open-board % on-ready :event-buffer-size event-buffer-size 
+                              :from-raw-digital from-raw-digital
+                              :reset-on-connect? reset-on-connect?)))
 
 (defn open-network-board
   "Opens a connection to a board at a host and port.
-  The buffer size for the events may be set with the option :event-buffer size
-  (default value 1024)."
+
+  Options:
+
+  :event-buffer-size - the number of messages buffered on read (defaults to 1024)
+  :from-raw-digital - a function for converting the raw 1/0 value of digital pin to a useful value (defaults to keywords :high/low)"
   [host port #+cljs on-ready
    & {:keys [event-buffer-size from-raw-digital]
       :or {event-buffer-size 1024 from-raw-digital to-keyword}}]
@@ -349,5 +370,22 @@
               #(open-board % on-ready
                   :warmup-time 0
                   :event-buffer-size event-buffer-size
-                  :from-raw-digital from-raw-digital
-                  :reset-on-connect? false)))
+                  :from-raw-digital from-raw-digital)))
+
+(defn create-network-board-server
+  "Creates a board server on a port.  Returns a platform-specfic server object. 
+
+  Options:
+
+  :host - the server host (defaults to '0.0.0.0')
+  :event-buffer-size - the number of messages buffered on read (defaults to 1024)
+  :from-raw-digital - a function for converting the raw 1/0 value of digital pin to a useful value (defaults to keywords :high/low)
+  :warmup-time - the time to wait for the board to 'settle' (defaults to 5 sec)
+  :reset-on-connect? - indicates whether or not a reset message should be set to the board during warmup (defaults to false)"
+  [port on-connected 
+   & {:keys [host event-buffer-size from-raw-digital]
+      :or   {host "0.0.0.0" event-buffer-size 1024 from-raw-digital to-keyword}}]
+  (st/create-socket-server-stream host port (fn [client]
+    (a/take! (open-board-chan client :event-buffer-size event-buffer-size
+                                     :from-raw-digital from-raw-digital)
+             on-connected))))
