@@ -25,7 +25,7 @@ Connecting to a board is a simple as
 
 replacing `cu.usbmodemfa141` with the name of the appropriate serial port.
 
-An valid serial port of a connected arduino may be detected by using `firmata.util/detect-arduino-port.`  Currently, this only works on Mac OS X.
+An valid serial port of a connected arduino may be autodetected by passing `:auto-detect`  Currently, this only works on Mac OS X and Linux.
 
 ### Communicating with the board.
 
