@@ -9,12 +9,14 @@
             [firmata.test.async-helpers :refer [get-event wait-for-it]]
             [firmata.test.mock-stream :refer [create-mock-stream receive-bytes is-open? last-write 
                                               #+clj throw-on-read throw-on-write]]
-            [firmata.test.board-helpers :refer [with-open-board]]
+            [firmata.test.board-helpers :refer [with-open-board with-serial-board]]
             [firmata.core :refer [open-board event-channel reset-board
                                   version close! firmware query-firmware query-capabilities
                                   query-version query-analog-mappings query-pin-state
                                   set-pin-mode enable-analog-in-reporting enable-digital-port-reporting
-                                  set-digital set-analog set-sampling-interval]])
+                                  set-digital set-analog set-sampling-interval]]
+            [firmata.util :refer [detect-arduino-port]]
+            [firmata.stream :as st])
   #+cljs 
   (:require-macros [cemerick.cljs.test
                        :refer (is deftest with-test run-tests testing test-var done)]))
@@ -379,6 +381,38 @@
       (is (= [0xFF] (last-write client)))
        
       #+cljs (done) ))))
+
+(deftest ^:async test-open-serial-with-auto-detect 
+  (let [opened-port (atom nil)]
+    (with-redefs [detect-arduino-port #+clj  (fn [] "some-port-value")
+                                      #+cljs (fn [callback] (callback "some-port-value"))
+                  st/create-serial-stream #+clj  (fn [port-name _]
+                                                    (reset! opened-port port-name)
+                                                    (create-mock-stream))
+                                          #+cljs (fn [port-name _ callback]
+                                                    (reset! opened-port port-name)
+                                                    (callback (create-mock-stream)))]
+      (with-serial-board :auto-detect (fn [board]
+
+        (is (= "some-port-value" @opened-port))
+
+        #+cljs (done)
+      )))))
+
+(deftest ^:async test-open-serial-port-name 
+  (let [opened-port (atom nil)]
+    (with-redefs [st/create-serial-stream #+clj  (fn [port-name _]
+                                                  (reset! opened-port port-name)
+                                                  (create-mock-stream))
+                                          #+cljs (fn [port-name _ callback]
+                                                  (reset! opened-port port-name)
+                                                  (callback (create-mock-stream)))]
+      (with-serial-board "cu.usbmodemfa141" (fn [board]
+
+        (is (= "cu.usbmodemfa141" @opened-port))
+
+        #+cljs (done)
+      )))))
 
 #+cljs 
 (do 

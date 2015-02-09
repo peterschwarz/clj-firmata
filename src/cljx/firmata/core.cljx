@@ -332,6 +332,9 @@
 (defn open-serial-board
   "Opens a connection to a board at a given port name.
 
+  Arguments
+  port-name - the name of the serial port or :auto-detect
+
   Options:
 
   :baud-rate - the serial baud rate (defaults to 576000)
@@ -339,18 +342,26 @@
   :from-raw-digital - a function for converting the raw 1/0 value of digital pin to a useful value (defaults to keywords :high/low)
   :warmup-time - the time to wait for the board to 'settle' (defaults to 5 sec)
   :reset-on-connect? - indicates whether or not a reset message should be set to the board during warmup (defaults to false)"
-  [port-name #+cljs on-ready
+  [port-name-or-auto-detect #+cljs on-ready
    & {:keys [baud-rate event-buffer-size from-raw-digital reset-on-connect?]
       :or {baud-rate 57600 event-buffer-size 1024 from-raw-digital to-keyword reset-on-connect? false}}]
-    #+clj
-    (open-board (st/create-serial-stream port-name baud-rate) 
+  (assert port-name-or-auto-detect "port-name-or-auto-detect may not be nil")
+  #+clj
+  (let [port-fn (if (= port-name-or-auto-detect :auto-detect)
+                  util/detect-arduino-port
+                  (fn [] port-name-or-auto-detect))]
+    (open-board (st/create-serial-stream (port-fn) baud-rate) 
                 :event-buffer-size event-buffer-size :from-raw-digital from-raw-digital
-                :reset-on-connect? reset-on-connect?)
-    #+cljs 
-    (st/create-serial-stream port-name baud-rate 
-      #(open-board % on-ready :event-buffer-size event-buffer-size 
-                              :from-raw-digital from-raw-digital
-                              :reset-on-connect? reset-on-connect?)))
+                :reset-on-connect? reset-on-connect?))
+  #+cljs 
+  (let [port-fn (if (= port-name-or-auto-detect :auto-detect)
+                    util/detect-arduino-port
+                    (fn [callback] (callback port-name-or-auto-detect)))]
+    (port-fn (fn [port-name] 
+      (st/create-serial-stream port-name baud-rate 
+        (fn [client] (open-board client on-ready :event-buffer-size event-buffer-size 
+                                :from-raw-digital from-raw-digital
+                                :reset-on-connect? reset-on-connect?)))))))
 
 (defn open-network-board
   "Opens a connection to a board at a host and port.
