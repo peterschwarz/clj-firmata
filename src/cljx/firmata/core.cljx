@@ -333,7 +333,7 @@
   "Opens a connection to a board at a given port name.
 
   Arguments
-  port-name - the name of the serial port or :auto-detect
+  port-name-or-auto-detect - the name of the serial port or :auto-detect
 
   Options:
 
