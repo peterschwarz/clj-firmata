@@ -1,9 +1,9 @@
 (ns firmata.util
   (:require [firmata.stream.spi :refer [read!]]
             #+clj 
-            [serial.core :refer [port-ids]]
+             [serial.core :refer [port-ids]]
             #+cljs
-            [cljs.nodejs :as nodejs]))
+             [cljs.nodejs :as nodejs]))
 
 ; Number conversions
 
@@ -60,8 +60,8 @@
 (defn to-hex-str
   "For debug output"
   [x] (str "0x" (.toUpperCase 
-                #+clj (Integer/toHexString x)
-                #+cljs (.toString x 16))))
+                 #+clj (Integer/toHexString x)
+                 #+cljs (.toString x 16))))
 
 (defn arduino-port?
   "Compares port name with known arduino port formats"
@@ -69,31 +69,31 @@
   (re-matches #"^(/dev/)?(tty|cu)(\.usbmodem|ACM).*$" port-name)) ;; Older boards
 
 #+clj
-(defn detect-arduino-port
-  "Returns the first arduino serial port based on port
+ (defn detect-arduino-port
+   "Returns the first arduino serial port based on port
    name, or nil. Currently only works for Mac."
-  []
-  (first (filter arduino-port?
-                 (map #(.getName %) (port-ids)))))
+   []
+   (first (filter arduino-port?
+                  (map #(.getName %) (port-ids)))))
 
 #+cljs
-(defn detect-arduino-port
-  "Provides to a callback the first arduino serial port based 
+ (defn detect-arduino-port
+   "Provides to a callback the first arduino serial port based 
    on port name, or nil. Currently only works for Mac.
 
    callback: (fn [err port-name])"
-  [callback]
-  (try 
-    (if-let [serialport (nodejs/require "serialport")]
+   [callback]
+   (try 
+     (if-let [serialport (nodejs/require "serialport")]
 
-      (let [list-fn (.-list serialport)]
-        (list-fn (fn [err ports]
-          (if err
-            (callback err nil)
-            (callback nil 
-              (first (filter arduino-port? 
-                (map #(.-comName %) (prim-seq ports)))))))))
+       (let [list-fn (.-list serialport)]
+         (list-fn (fn [err ports]
+                    (if err
+                      (callback err nil)
+                      (callback nil 
+                                (first (filter arduino-port? 
+                                               (map #(.-comName %) (prim-seq ports)))))))))
 
-      (callback "Unable to require 'serialport': This may be due to a missing npm dependency." nil))
-    (catch js/Error e
-      (callback e nil))))
+       (callback "Unable to require 'serialport': This may be due to a missing npm dependency." nil))
+     (catch js/Error e
+       (callback e nil))))

@@ -6,15 +6,15 @@
             [firmata.util :as util :refer [lsb msb]]
 
             #+clj 
-            [clojure.core.async :as a :refer [go go-loop chan >! <! <!!]]
+             [clojure.core.async :as a :refer [go go-loop chan >! <! <!!]]
 
             #+cljs
-            [cljs.core.async    :as a :refer [chan >! <!]]
+             [cljs.core.async    :as a :refer [chan >! <!]]
 
             #+cljs
-            [clojure.string])
+             [clojure.string])
   #+cljs
-  (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
+   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 ; Pin Modes
 (def ^:private mode-values (zipmap m/modes (range 0 (count m/modes))))
@@ -38,7 +38,7 @@
 (defn- read-digital
   [board message in]
   (let [port (- message m/DIGITAL_IO_MESSAGE)
-        previous-port (get-in @(:state board)[:digital-in port])
+        previous-port (get-in @(:state board) [:digital-in port])
         updated-port (util/bytes-to-int (read! in) (read! in))
         pin-change (- updated-port previous-port)
         pin (+ (util/lowest-set-bit pin-change) (* 8 port))
@@ -55,16 +55,16 @@
   (try 
     (let [message (read! in)]
       (cond
-       (= m/PROTOCOL_VERSION message) (let [version (read-version in)]
-                                      {:type :protocol-version, :version version})
-       (= m/SYSEX_START message) (read-sysex-event in)
-       (m/is-digital? message) (read-digital board message in)
-       (m/is-analog? message)  (read-analog message in)
+        (= m/PROTOCOL_VERSION message) (let [version (read-version in)]
+                                         {:type :protocol-version, :version version})
+        (= m/SYSEX_START message) (read-sysex-event in)
+        (m/is-digital? message) (read-digital board message in)
+        (m/is-analog? message)  (read-analog message in)
 
-       :else {:type :unknown-msg
-              :value message}))
+        :else {:type :unknown-msg
+               :value message}))
     (catch #+clj Exception #+cljs js/Error e
-      e)))
+           e)))
 
 (defn- firmata-handler
   [board]
@@ -97,7 +97,7 @@
   and converts it to a digital value."
   [value]
   (assert (some #(= value %) [:high :low 1 0 'high 'low "1" "0" \1 \0])
-    "value must be from the set #{:high :low 1 0 'high 'low  \\1 \\0}")
+          "value must be from the set #{:high :low 1 0 'high 'low  \\1 \\0}")
   (condp = value
     1     :high
     'high :high
@@ -120,14 +120,14 @@
 
 (defn close!
   "Closes the connection to the board."
- [board]
- (a/close! (:write-ch board))
- (a/close! (:read-ch board))
- (try 
-  (spi/close! (:stream board))
-  nil
-  (catch #+clj Exception #+cljs js/Error e
-    e)))
+  [board]
+  (a/close! (:write-ch board))
+  (a/close! (:read-ch board))
+  (try 
+    (spi/close! (:stream board))
+    nil
+    (catch #+clj Exception #+cljs js/Error e
+           e)))
 
 (defn reset-board
   "Sends the reset signal to the board"
@@ -216,9 +216,9 @@
   [board pin value]
   (assert (pin? pin) "must supply a valid pin value 0-127")
   (send-message board
-       (if (> pin 15)
-         [m/SYSEX_START m/EXTENDED_ANALOG pin (lsb value) (msb value) m/SYSEX_END]
-         [(pin-command m/ANALOG_IO_MESSAGE pin) (lsb value) (msb value)])))
+                (if (> pin 15)
+                  [m/SYSEX_START m/EXTENDED_ANALOG pin (lsb value) (msb value) m/SYSEX_END]
+                  [(pin-command m/ANALOG_IO_MESSAGE pin) (lsb value) (msb value)])))
 
 (defn set-sampling-interval
   "The sampling interval sets how often analog data and i2c data is reported to the client.
@@ -251,18 +251,18 @@
     (spi/write stream data)
     nil
     (catch #+clj Exception #+cljs js/Error e
-      e)))
+           e)))
 
 (defn- run-write-loop [stream write-ch error-ch]
   "Run the write loop, which pulls data from the write channel, and 
   writes it, in sequence, to the stream."
-   (go-loop []
-      (when-let [data (<! write-ch)]
-        (if-let [exception (safe-write stream data)]
-          (do
-            (>! error-ch exception)
-            (a/close! write-ch))
-          (recur)))))
+  (go-loop []
+    (when-let [data (<! write-ch)]
+      (if-let [exception (safe-write stream data)]
+        (do
+          (>! error-ch exception)
+          (a/close! write-ch))
+        (recur)))))
 
 (defn- complete-board 
   "Completes board setup, after all the events are recieved"
@@ -280,8 +280,8 @@
 
 (defn- open-board-chan
   [stream 
-    & {:keys [event-buffer-size from-raw-digital warmup-time reset-on-connect?]
-       :or {event-buffer-size 1024 from-raw-digital to-keyword warmup-time 5000 reset-on-connect? false}}]
+   & {:keys [event-buffer-size from-raw-digital warmup-time reset-on-connect?]
+      :or {event-buffer-size 1024 from-raw-digital to-keyword warmup-time 5000 reset-on-connect? false}}]
   (assert from-raw-digital ":from-raw-digital may not be nil")
   (let [board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
                            :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})
@@ -296,24 +296,24 @@
       (when reset-on-connect?
         (spi/write port m/SYSTEM_RESET)
         (a/timeout 100)) ; wait for the reset...
-
+      
       (spi/listen port (firmata-handler {:state board-state 
                                          :channel read-ch 
                                          :from-raw-digital from-raw-digital}))
 
       ; Need to pull these values before wiring up the remaining channels, otherwise, they get lost
       (take-with-timeout! read-ch {:type :protocol-version :version "Unknown"} warmup-time
-        (fn [version-event] 
-          (swap! board-state assoc :board-version (:version version-event))
+                          (fn [version-event] 
+                            (swap! board-state assoc :board-version (:version version-event))
 
-          (take-with-timeout! read-ch  {:name "Unknown" :version "Unknown"} warmup-time
-            (fn [firmware-event]
-              (swap! board-state assoc :board-firmware (dissoc firmware-event :type))
+                            (take-with-timeout! read-ch  {:name "Unknown" :version "Unknown"} warmup-time
+                                                (fn [firmware-event]
+                                                  (swap! board-state assoc :board-firmware (dissoc firmware-event :type))
 
-              (a/put! result-ch  
-                (complete-board board-state port create-channel read-ch)))))))
+                                                  (a/put! result-ch  
+                                                          (complete-board board-state port create-channel read-ch)))))))
 
-   result-ch))
+    result-ch))
 
 (defn open-board
   "Opens a connection to a board over a given FirmataStream.
@@ -347,21 +347,21 @@
       :or {baud-rate 57600 event-buffer-size 1024 from-raw-digital to-keyword reset-on-connect? false}}]
   (assert port-name-or-auto-detect "port-name-or-auto-detect may not be nil")
   #+clj
-  (let [port-fn (if (= port-name-or-auto-detect :auto-detect)
-                  util/detect-arduino-port
-                  (fn [] port-name-or-auto-detect))]
-    (open-board (st/create-serial-stream (port-fn) baud-rate) 
-                :event-buffer-size event-buffer-size :from-raw-digital from-raw-digital
-                :reset-on-connect? reset-on-connect?))
+   (let [port-fn (if (= port-name-or-auto-detect :auto-detect)
+                   util/detect-arduino-port
+                   (fn [] port-name-or-auto-detect))]
+     (open-board (st/create-serial-stream (port-fn) baud-rate) 
+                 :event-buffer-size event-buffer-size :from-raw-digital from-raw-digital
+                 :reset-on-connect? reset-on-connect?))
   #+cljs 
-  (let [port-fn (if (= port-name-or-auto-detect :auto-detect)
-                    util/detect-arduino-port
-                    (fn [callback] (callback port-name-or-auto-detect)))]
-    (port-fn (fn [port-name] 
-      (st/create-serial-stream port-name baud-rate 
-        (fn [client] (open-board client on-ready :event-buffer-size event-buffer-size 
-                                :from-raw-digital from-raw-digital
-                                :reset-on-connect? reset-on-connect?)))))))
+   (let [port-fn (if (= port-name-or-auto-detect :auto-detect)
+                   util/detect-arduino-port
+                   (fn [callback] (callback port-name-or-auto-detect)))]
+     (port-fn (fn [port-name] 
+                (st/create-serial-stream port-name baud-rate 
+                                         (fn [client] (open-board client on-ready :event-buffer-size event-buffer-size 
+                                                                  :from-raw-digital from-raw-digital
+                                                                  :reset-on-connect? reset-on-connect?)))))))
 
 (defn open-network-board
   "Opens a connection to a board at a host and port.
@@ -373,15 +373,15 @@
   [host port #+cljs on-ready
    & {:keys [event-buffer-size from-raw-digital]
       :or {event-buffer-size 1024 from-raw-digital to-keyword}}]
-    #+clj  (open-board (st/create-socket-client-stream host port) 
-                :warmup-time 0
-                :event-buffer-size event-buffer-size
-                :from-raw-digital from-raw-digital)
-    #+cljs (st/create-socket-client-stream host port 
-              #(open-board % on-ready
-                  :warmup-time 0
-                  :event-buffer-size event-buffer-size
-                  :from-raw-digital from-raw-digital)))
+  #+clj  (open-board (st/create-socket-client-stream host port) 
+                     :warmup-time 0
+                     :event-buffer-size event-buffer-size
+                     :from-raw-digital from-raw-digital)
+  #+cljs (st/create-socket-client-stream host port 
+                                         #(open-board % on-ready
+                                                      :warmup-time 0
+                                                      :event-buffer-size event-buffer-size
+                                                      :from-raw-digital from-raw-digital)))
 
 (defn create-network-board-server
   "Creates a board server on a port.  Returns a platform-specfic server object. 
@@ -397,6 +397,6 @@
    & {:keys [host event-buffer-size from-raw-digital]
       :or   {host "0.0.0.0" event-buffer-size 1024 from-raw-digital to-keyword}}]
   (st/create-socket-server-stream host port (fn [client]
-    (a/take! (open-board-chan client :event-buffer-size event-buffer-size
-                                     :from-raw-digital from-raw-digital)
-             on-connected))))
+                                              (a/take! (open-board-chan client :event-buffer-size event-buffer-size
+                                                                        :from-raw-digital from-raw-digital)
+                                                       on-connected))))

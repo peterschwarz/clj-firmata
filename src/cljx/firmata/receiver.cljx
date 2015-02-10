@@ -4,11 +4,11 @@
   (:require [firmata.core :refer [event-channel release-event-channel]]
             [firmata.async :refer [digital-event-chan analog-event-chan]]
             #+clj
-            [clojure.core.async :as a :refer [go go-loop <!]]
+             [clojure.core.async :as a :refer [go go-loop <!]]
             #+cljs
-            [cljs.core.async    :as a :refer [<!]])
+             [cljs.core.async    :as a :refer [<!]])
   #+cljs
-  (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
+   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 (defprotocol EventHandler
   "Deprecated" 
@@ -29,15 +29,15 @@
     (evt-loop ch event-handler)
     (reify EventHandler
       (stop-receiver!
-       [this]
-       (release-event-channel board ch)))))
+        [this]
+        (release-event-channel board ch)))))
 
 (defn- unsub-handler
   [channel]
   (reify EventHandler
     (stop-receiver!
-     [this]
-     (a/close! channel))))
+      [this]
+      (a/close! channel))))
 
 (defn- on-subscription-event
   [ch event-handler]
@@ -59,4 +59,4 @@
   `event-handler` takes should take one argument: event."
   ([board analog-pin event-handler] (on-analog-event board analog-pin event-handler 5))
   ([board analog-pin event-handler delta]
-  (on-subscription-event (analog-event-chan board analog-pin :delta delta) event-handler)))
+   (on-subscription-event (analog-event-chan board analog-pin :delta delta) event-handler)))

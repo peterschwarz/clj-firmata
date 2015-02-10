@@ -24,12 +24,12 @@
      :data data}))
 
 (defn send-i2c-request
- "Sends an I2C read/write request with optional extended data."
- [board slave-address mode & data]
- {:pre [(mode i2c-mode-values)]}
- (send-message board (concat [SYSEX_START I2C_REQUEST (lsb slave-address) (bit-shift-left (mode i2c-mode-values) 2)]
-                             (reduce #(conj %1 (lsb %2) (msb %2)) [] data)
-                             [SYSEX_END])))
+  "Sends an I2C read/write request with optional extended data."
+  [board slave-address mode & data]
+  {:pre [(mode i2c-mode-values)]}
+  (send-message board (concat [SYSEX_START I2C_REQUEST (lsb slave-address) (bit-shift-left (mode i2c-mode-values) 2)]
+                              (reduce #(conj %1 (lsb %2) (msb %2)) [] data)
+                              [SYSEX_END])))
 
 (defn send-i2c-config
   "Sends an I2C config message with a delay and optional user-defined data."

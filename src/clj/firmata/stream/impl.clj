@@ -36,8 +36,8 @@
 
 (defn- close-socket [socket-client]
   (when-let [socket (:socket socket-client)]
-      (.close (:socket socket-client))
-      (dissoc socket-client :socket)))
+    (.close (:socket socket-client))
+    (dissoc socket-client :socket)))
 
 (defn- write-socket [socket-client data]
   ; NOTE: This relies on the fact that we're using clj-serial,
@@ -102,7 +102,7 @@
 
   (listen [this handler]
     (listen-socket this handler)))
- 
+
 (defn create-socket-client-stream [host port]
   (SocketClientStream. host port))
 

@@ -1,7 +1,7 @@
 (ns firmata.sysex
-    (:require [firmata.messages :as m]
-              [firmata.util :as util]
-              [firmata.stream.spi :refer [read!]]))
+  (:require [firmata.messages :as m]
+            [firmata.util :as util]
+            [firmata.stream.spi :refer [read!]]))
 
 
 (defn consume-sysex
@@ -18,13 +18,12 @@
     (if (= m/SYSEX_END current-value)
       result
       (recur (assoc result pin
-               (loop [pin-modes {}
-                      pin-mode current-value]
-                 (if (= 0x7F pin-mode)
-                   pin-modes
-                   (recur (assoc pin-modes (get m/modes pin-mode :future-mode) (read! in))
-                          (read! in))
-                   )))
+                    (loop [pin-modes {}
+                           pin-mode current-value]
+                      (if (= 0x7F pin-mode)
+                        pin-modes
+                        (recur (assoc pin-modes (get m/modes pin-mode :future-mode) (read! in))
+                               (read! in)))))
              (read! in)
              (inc pin)))))
 
@@ -33,7 +32,7 @@
   [in]
   (loop [result []
          current-byte (read! in)]
-    (if (= m/SYSEX_END current-byte )
+    (if (= m/SYSEX_END current-byte)
       result
       (recur (conj result (util/bytes-to-int current-byte (read! in)))
              (read! in)))))

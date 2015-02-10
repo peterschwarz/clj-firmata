@@ -65,8 +65,8 @@
   (let [buffer (make-array 0)
         buf-reset! #(set! (.-length buffer) 0)
         emit-and-clear (fn [] 
-                        (on-complete-data (js/Buffer buffer))
-                        (buf-reset!))]
+                         (on-complete-data (js/Buffer buffer))
+                         (buf-reset!))]
     (fn [data]
       (when @error-atom
         (on-complete-data (ErrorReader. @error-atom)))
@@ -77,11 +77,11 @@
                 last-byte (alast buffer)]
             (cond 
               (and (= SYSEX_START first-byte) (= SYSEX_END last-byte)) 
-                (emit-and-clear)
+              (emit-and-clear)
               (and (valid-cmd? first-byte) (= 3 (alength buffer))) ;; non-sysex command
-                (emit-and-clear)
+              (emit-and-clear)
               (not (or (= SYSEX_START first-byte) (valid-cmd? first-byte))) ;; out of sync
-                (buf-reset!))))))))
+              (buf-reset!))))))))
 
 (defn- on-data [listenable handler error-atom]
   (let [preparser (create-preparser handler error-atom)]
