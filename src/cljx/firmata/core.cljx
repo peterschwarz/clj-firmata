@@ -325,7 +325,7 @@
   :warmup-time - the time to wait for the board to 'settle' (defaults to 5 sec)
   :reset-on-connect? - indicates whether or not a reset message should be set to the board during warmup (defaults to false)"
   [stream #+cljs on-ready & args]
-  (let [result-ch (apply open-board-chan (conj args stream))]
+  (let [result-ch (apply open-board-chan stream args)]
     #+clj (<!! result-ch)
     #+cljs (a/take! result-ch on-ready)))
 
