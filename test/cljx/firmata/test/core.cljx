@@ -14,7 +14,8 @@
                                   version close! firmware query-firmware query-capabilities
                                   query-version query-analog-mappings query-pin-state
                                   set-pin-mode enable-analog-in-reporting enable-digital-port-reporting
-                                  set-digital set-analog set-sampling-interval]]
+                                  set-digital set-analog set-sampling-interval
+                                  format-raw-digital]]
             [firmata.util :refer [detect-arduino-port]]
             [firmata.stream :as st])
   #+cljs 
@@ -179,6 +180,51 @@
           (is (= exception event))
           #+cljs (done)
           ))))))))
+
+(deftest ^:async test-read-events-highlow-raw
+
+  (let [client (create-mock-stream)]
+    (with-open-board client [:digital-result-format :raw] (fn [board]
+      (let [evt-chan (event-channel board)]
+
+    (testing "read digital message: low boundary"
+      (receive-bytes client 0x90 0 0)
+      (get-event evt-chan (fn [event]
+        (is (= 0 (:pin event)))
+        (is (= 0 (:value event)))
+        (is (= 0 (:raw-value event))))))
+
+    (testing "read digital message: high boundary"
+      (receive-bytes client 0x9F 0x00 0x01)
+      (get-event evt-chan (fn [event]
+        (is (= :digital-msg (:type event)))
+        (is (= 127 (:pin event)))
+        (is (= 1 (:value event)))
+        (is (= 1 (:raw-value event))))))
+
+       )))))
+
+(deftest test-format-raw-digital
+
+  (testing "keyword"
+    (is (= :low (format-raw-digital :keyword 0)))
+    (is (= :high (format-raw-digital :keyword 1))))
+
+  (testing "raw"
+    (is (= 0 (format-raw-digital :raw 0)))
+    (is (= 1 (format-raw-digital :raw 1))))
+
+  (testing "boolean"
+    (is (= false (format-raw-digital :boolean 0)))
+    (is (= true (format-raw-digital :boolean 1))))
+
+  (testing "symbol"
+    (is (= 'low (format-raw-digital :symbol 0)))
+    (is (= 'high (format-raw-digital :symbol 1))))
+
+  (testing "char"
+    (is (= \0 (format-raw-digital :char 0)))
+    (is (= \1 (format-raw-digital :char 1)))))
 
 (deftest ^:async test-read-events-alternate-from-raw
 

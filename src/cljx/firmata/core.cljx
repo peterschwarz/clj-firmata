@@ -107,9 +107,36 @@
     \0    :low
     value))
 
-(defn to-keyword 
-  "Converts the raw digital values to keywords high or low."
-  [raw-value] (if (= 1 raw-value) :high :low))
+(defn- do-format 
+  [raw-value high low]
+  (if (= 1 raw-value) high low))
+
+(defmulti format-raw-digital 
+  "Formats the raw values received from digital reads of pin state,
+  or digital events.
+
+  The type specified is a keyword."
+  (fn [type _] type))
+
+(defmethod format-raw-digital :keyword 
+  [_ raw-value]
+  (do-format raw-value :high :low))
+
+(defmethod format-raw-digital :boolean
+  [_ raw-value]
+  (= 1 raw-value))
+
+(defmethod format-raw-digital :symbol
+  [_ raw-value]
+  (do-format raw-value 'high 'low))
+
+(defmethod format-raw-digital :char
+  [_ raw-value]
+  (do-format raw-value \1 \0))
+
+(defmethod format-raw-digital :default
+  [_ raw-value]
+  raw-value)
 
 (defn send-message
   "Sends an arbitrary message to the board.  Useful for I2C message,
@@ -265,7 +292,7 @@
         (recur)))))
 
 (defn- complete-board 
-  "Completes board setup, after all the events are recieved"
+  "Completes board setup, after all the events are received"
   [board-state port create-channel read-ch]
   (let [write-ch (chan 1)
         mult-ch (a/mult read-ch)
@@ -280,12 +307,12 @@
 
 (defn- open-board-chan
   [stream 
-   & {:keys [event-buffer-size from-raw-digital warmup-time reset-on-connect?]
-      :or {event-buffer-size 1024 from-raw-digital to-keyword warmup-time 5000 reset-on-connect? false}}]
-  (assert from-raw-digital ":from-raw-digital may not be nil")
+   & {:keys [event-buffer-size digital-result-format from-raw-digital warmup-time reset-on-connect?]
+      :or {event-buffer-size 1024 digital-result-format :keyword warmup-time 5000 reset-on-connect? false}}]
   (let [board-state (atom {:digital-out (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))
                            :digital-in  (zipmap (range 0 MAX-PORTS) (take MAX-PORTS (repeat 0)))})
-
+        formatter (or from-raw-digital 
+                      (partial format-raw-digital digital-result-format))
         create-channel #(chan (a/sliding-buffer event-buffer-size))
         read-ch (create-channel)
 
@@ -299,7 +326,7 @@
       
       (spi/listen port (firmata-handler {:state board-state 
                                          :channel read-ch 
-                                         :from-raw-digital from-raw-digital}))
+                                         :from-raw-digital formatter}))
 
       ; Need to pull these values before wiring up the remaining channels, otherwise, they get lost
       (take-with-timeout! read-ch {:type :protocol-version :version "Unknown"} warmup-time
@@ -343,15 +370,17 @@
   :warmup-time - the time to wait for the board to 'settle' (defaults to 5 sec)
   :reset-on-connect? - indicates whether or not a reset message should be set to the board during warmup (defaults to false)"
   [port-name-or-auto-detect #+cljs on-ready
-   & {:keys [baud-rate event-buffer-size from-raw-digital reset-on-connect?]
-      :or {baud-rate 57600 event-buffer-size 1024 from-raw-digital to-keyword reset-on-connect? false}}]
+   & {:keys [baud-rate event-buffer-size digital-result-format from-raw-digital reset-on-connect?]
+      :or {baud-rate 57600 event-buffer-size 1024 digital-result-format :keyword reset-on-connect? false}}]
   (assert port-name-or-auto-detect "port-name-or-auto-detect may not be nil")
   #+clj
    (let [port-fn (if (= port-name-or-auto-detect :auto-detect)
                    util/detect-arduino-port
                    (fn [] port-name-or-auto-detect))]
      (open-board (st/create-serial-stream (port-fn) baud-rate) 
-                 :event-buffer-size event-buffer-size :from-raw-digital from-raw-digital
+                 :event-buffer-size event-buffer-size 
+                 :digital-result-format digital-result-format
+                 :from-raw-digital from-raw-digital
                  :reset-on-connect? reset-on-connect?))
   #+cljs 
    (let [port-fn (if (= port-name-or-auto-detect :auto-detect)
@@ -371,11 +400,12 @@
   :event-buffer-size - the number of messages buffered on read (defaults to 1024)
   :from-raw-digital - a function for converting the raw 1/0 value of digital pin to a useful value (defaults to keywords :high/low)"
   [host port #+cljs on-ready
-   & {:keys [event-buffer-size from-raw-digital]
-      :or {event-buffer-size 1024 from-raw-digital to-keyword}}]
+   & {:keys [event-buffer-size digital-result-format from-raw-digital]
+      :or {event-buffer-size 1024 digital-result-format :keyword}}]
   #+clj  (open-board (st/create-socket-client-stream host port) 
                      :warmup-time 0
                      :event-buffer-size event-buffer-size
+                     :digital-result-format digital-result-format
                      :from-raw-digital from-raw-digital)
   #+cljs (st/create-socket-client-stream host port 
                                          #(open-board % on-ready
@@ -394,8 +424,8 @@
   :warmup-time - the time to wait for the board to 'settle' (defaults to 5 sec)
   :reset-on-connect? - indicates whether or not a reset message should be set to the board during warmup (defaults to false)"
   [port on-connected 
-   & {:keys [host event-buffer-size from-raw-digital]
-      :or   {host "0.0.0.0" event-buffer-size 1024 from-raw-digital to-keyword}}]
+   & {:keys [host event-buffer-size from-raw-digital digital-result-format]
+      :or   {host "0.0.0.0" event-buffer-size 1024 digital-result-format :keyword}}]
   (st/create-socket-server-stream host port (fn [client]
                                               (a/take! (open-board-chan client :event-buffer-size event-buffer-size
                                                                         :from-raw-digital from-raw-digital)
