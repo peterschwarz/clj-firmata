@@ -1,4 +1,4 @@
-(defproject clj-firmata "2.1.0-SNAPSHOT"
+(defproject clj-firmata "2.1.0"
   :description "A Standard Firmata (http://firmata.org/) client."
   :url "https://github.com/peterschwarz/clj-firmata"
   :license {:name "Eclipse Public License"

@@ -9,7 +9,7 @@
 Add the following to your `project.clj`
 
 ```clojure
-[clj-firmata "2.1.0-SNAPSHOT"]
+[clj-firmata "2.1.0"]
 ```
 
 For Clojurescript usage, see [here](doc/clojurescript.md)
