@@ -9,7 +9,7 @@
 Add the following to your `project.clj`
 
 ```clojure
-[clj-firmata "2.0.2-SNAPSHOT"]
+[clj-firmata "2.1.0-SNAPSHOT"]
 ```
 
 For Clojurescript usage, see [here](doc/clojurescript.md)
@@ -109,13 +109,22 @@ This will result in the following events on the channel:
    (is (= :high (:value event)))
 ```
 
-By default, the pin value is returned as a key word, either `:high` or `:low`. This may be changed by using the `:from-raw-digital` option when opening the board.  For example:
+By default, the pin value is returned as a key word, either `:high` or `:low`. This may be changed by using the `:digital-result-format ` option when opening the board.  For example:
 
 ```clojure
-(def board (open-serial-board "cu.usbmodemfa141" :from-raw-digital identity))
+(def board (open-serial-board "cu.usbmodemfa141" :digital-result-format :raw))
 ```
 
-With this board instance, any read or report of a digital pin's HIGH/LOW state will be `1` or `0`.
+With this board instance, any read or report of a digital pin's HIGH/LOW state will be `1` or `0`, respectively.  One can use `:keyword`, `:boolean`, `:char`, `:symbol` and `:raw`.  The default is `:keyword`.
+
+One can also write a custom digital formatter by passing a function for the `:from-raw-digital`:
+
+```clojure
+(def board (open-serial-board "cu.usbmodemfa141" 
+                              :from-raw-digital #(if (= 1 %) :foo :bar)))
+```
+
+With this board instance, any read or report of a digital pin's HIGH/LOW state will be `:foo` or `:bar` respectively
 
 For convenience, the `firmata.async` namspace provides the function `digital-event-chan`, which creates a channel with filtered events with the `:digital-msg` type and a specific pin.  For example:
 
@@ -152,7 +161,7 @@ Like `digital-event-chan`, there is an `analog-event-chan` which will provide th
 
 ### Exceptions and Error handling
 
-Any exceptions that occur while reading or writing to the board will be passed forwarded along the event channel. 
+Any exceptions that occur while reading or writing to the board will be forwarded along the event channel. 
 
 ### Close the connection to a Board
 
