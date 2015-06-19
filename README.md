@@ -23,7 +23,7 @@ Connecting to a board is a simple as
 (def board (open-serial-board "cu.usbmodemfa141"))
 ```
 
-replacing `cu.usbmodemfa141` with the name of the appropriate serial port.  NOTE: on Linux/OS X, you don't need to give the full path of the port (e.g. `/dev/cu.usbmodemfa141`) only the file name.
+replacing `cu.usbmodemfa141` with the name of the appropriate serial port.  NOTE: on Linux/OS X, you don't need to give the full path of the port (e.g. `/dev/cu.usbmodemfa141`), only the file name as in the above example.
 
 An valid serial port of a connected arduino may be autodetected by passing `:auto-detect`  Currently, this only works on Mac OS X and Linux.
 
