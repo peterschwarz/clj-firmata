@@ -14,28 +14,34 @@
 
   :jvm-opts ["-Xmx384m"]
 
-  :dependencies [[org.clojure/clojure "1.6.0"]
-                 [org.clojure/clojurescript "0.0-2411"]
+  :dependencies [[org.clojure/clojure "1.7.0-RC2"]
+                 [org.clojure/clojurescript "0.0-3308"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
-                 [clj-serial "2.0.2"]]
+                 [clj-serial "2.0.3"]]
 
   :scm {:name "git"
         :url "https://github.com/peterschwarz/clj-firmata"}
 
-  :profiles {:dev {:plugins [[com.keminglabs/cljx "0.5.0"]
+  :profiles {:dev {:plugins [[com.keminglabs/cljx "0.6.0"]
                              [lein-cloverage "1.0.2"]
-                             [lein-cljsbuild "1.0.4"]
-                             [lein-cljfmt "0.1.7"]
+                             [lein-cljsbuild "1.0.6"]
                              [com.cemerick/clojurescript.test "0.3.3"]
-                             [lein-npm "0.5.0"]]
+                             [lein-npm "0.5.0"]
+                             [codox "0.8.12"]]
+
                    :aliases {"cleantest" ["do" "clean," "cljx" "once," "test,"
                                           "npm" "install," "cljsbuild" "test"]
                              "cljstest" ["do" "cljx" "once," "cljsbuild" "test"]}}}
 
   :prep-tasks [["cljx" "once"]]
 
-  :node-dependencies [[serialport "1.4.9"]]
+  :node-dependencies [[serialport "1.7.4"]]
   :npm-root "target"
+
+  :codox {:defaults {:doc/format :markdown}
+          :sources  ["src/clj" "target/classes"]
+          :exclude [firmata.stream.impl]
+          :output-dir "target/doc"}
 
   :cljx {:builds [{:source-paths ["src/cljx"]
                  :output-path "target/classes"
