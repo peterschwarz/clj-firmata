@@ -347,10 +347,11 @@
 
   Options:
 
-  :event-buffer-size - the number of messages buffered on read (defaults to 1024)
-  :from-raw-digital - a function for converting the raw 1/0 value of digital pin to a useful value (defaults to keywords :high/low)
-  :warmup-time - the time to wait for the board to 'settle' (defaults to 5 sec)
-  :reset-on-connect? - indicates whether or not a reset message should be set to the board during warmup (defaults to false)"
+  * `:event-buffer-size` - the number of messages buffered on read (defaults to 1024)
+  * `:digital-result-format` - the format for digital read values (defaults to `:keyword` i.e. `:high`/`:low`)
+  * `:from-raw-digital` - a function for converting the raw 1/0 value of digital pin to a useful value (overrides `:digital-result-format`)
+  * `:warmup-time` - the time to wait for the board to 'settle' (defaults to 5 sec)
+  * `:reset-on-connect?` - indicates whether or not a reset message should be set to the board during warmup (defaults to false)"
   [stream #+cljs on-ready & args]
   (let [result-ch (apply open-board-chan stream args)]
     #+clj (<!! result-ch)
@@ -360,15 +361,17 @@
   "Opens a connection to a board at a given port name.
 
   Arguments
-  port-name-or-auto-detect - the name of the serial port or :auto-detect
+
+  * `port-name-or-auto-detect` - the name of the serial port or :auto-detect
 
   Options:
 
-  :baud-rate - the serial baud rate (defaults to 576000)
-  :event-buffer-size - the number of messages buffered on read (defaults to 1024)
-  :from-raw-digital - a function for converting the raw 1/0 value of digital pin to a useful value (defaults to keywords :high/low)
-  :warmup-time - the time to wait for the board to 'settle' (defaults to 5 sec)
-  :reset-on-connect? - indicates whether or not a reset message should be set to the board during warmup (defaults to false)"
+  * `:baud-rate` - the serial baud rate (defaults to 576000)
+  * `:event-buffer-size` - the number of messages buffered on read (defaults to 1024)
+  * `:digital-result-format` - the format for digital read values (defaults to `:keyword` i.e. `:high`/`:low`)
+  * `:from-raw-digital` - a function for converting the raw 1/0 value of digital pin to a useful value (overrides `:digital-result-format`)
+  * `:warmup-time` - the time to wait for the board to 'settle' (defaults to 5 sec)
+  * `:reset-on-connect?` - indicates whether or not a reset message should be set to the board during warmup (defaults to false)"
   [port-name-or-auto-detect #+cljs on-ready
    & {:keys [baud-rate event-buffer-size digital-result-format from-raw-digital reset-on-connect?]
       :or {baud-rate 57600 event-buffer-size 1024 digital-result-format :keyword reset-on-connect? false}}]
@@ -397,8 +400,9 @@
 
   Options:
 
-  :event-buffer-size - the number of messages buffered on read (defaults to 1024)
-  :from-raw-digital - a function for converting the raw 1/0 value of digital pin to a useful value (defaults to keywords :high/low)"
+  * `:event-buffer-size` - the number of messages buffered on read (defaults to 1024)
+  * `:digital-result-format` - the format for digital read values (defaults to `:keyword` i.e. `:high`/`:low`)
+  * `:from-raw-digital` - a function for converting the raw 1/0 value of digital pin to a useful value (overrides `:digital-result-format`)"
   [host port #+cljs on-ready
    & {:keys [event-buffer-size digital-result-format from-raw-digital]
       :or {event-buffer-size 1024 digital-result-format :keyword}}]
@@ -418,11 +422,12 @@
 
   Options:
 
-  :host - the server host (defaults to '0.0.0.0')
-  :event-buffer-size - the number of messages buffered on read (defaults to 1024)
-  :from-raw-digital - a function for converting the raw 1/0 value of digital pin to a useful value (defaults to keywords :high/low)
-  :warmup-time - the time to wait for the board to 'settle' (defaults to 5 sec)
-  :reset-on-connect? - indicates whether or not a reset message should be set to the board during warmup (defaults to false)"
+  * `:host` - the server host (defaults to '0.0.0.0')
+  * `:event-buffer-size` - the number of messages buffered on read (defaults to 1024)
+  * `:digital-result-format` - the format for digital read values (defaults to `:keyword` i.e. `:high`/`:low`)
+  * `:from-raw-digital` - a function for converting the raw 1/0 value of digital pin to a useful value (overrides `:digital-result-format`)
+  * `:warmup-time` - the time to wait for the board to 'settle' (defaults to 5 sec)
+  * `:reset-on-connect?` - indicates whether or not a reset message should be set to the board during warmup (defaults to false)"
   [port on-connected 
    & {:keys [host event-buffer-size from-raw-digital digital-result-format]
       :or   {host "0.0.0.0" event-buffer-size 1024 digital-result-format :keyword}}]
