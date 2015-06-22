@@ -102,7 +102,7 @@
         (reset! list-fn (fn [f] (f nil (array))))
 
         (detect-arduino-port (fn [err port]
-          (is (= nil err))
+          (is (= "No port found" err))
           (is (= nil port)))))
 
       (testing "returns error"

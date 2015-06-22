@@ -68,13 +68,15 @@
   [port-name]
   (re-matches #"^(/dev/)?(tty|cu)(\.usbmodem|ACM).*$" port-name)) ;; Older boards
 
+(defn- first-port [port-seq name-fn]
+  (first (filter arduino-port? (map name-fn port-seq))))
+
 #+clj
  (defn detect-arduino-port
    "Returns the first arduino serial port based on port
    name, or nil. Currently only works for Mac."
    []
-   (first (filter arduino-port?
-                  (map #(.getName %) (port-ids)))))
+   (first-port (port-ids) #(.getName %)))
 
 #+cljs
  (defn detect-arduino-port
@@ -90,9 +92,9 @@
          (list-fn (fn [err ports]
                     (if err
                       (callback err nil)
-                      (callback nil 
-                                (first (filter arduino-port? 
-                                               (map #(.-comName %) (prim-seq ports)))))))))
+                      (if-let [port (first-port (prim-seq ports) #(.-comName %))]
+                        (callback nil port)
+                        (callback "No port found" nil))))))
 
        (callback "Unable to require 'serialport': This may be due to a missing npm dependency." nil))
      (catch js/Error e
