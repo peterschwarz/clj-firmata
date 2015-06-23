@@ -110,14 +110,24 @@
           (write-data source data)
           (throw @last-error))))))
 
-(defn create-serial-stream [port-name baud-rate on-connected]
+(defn create-serial-stream
+  "Creates a serial stream on the given port-name, with the given baud-rate, and
+   returns resulting stream via the on-connected callback function.
+  
+  The callback function should have the signatures of `(fn [stream])`"
+  [port-name baud-rate on-connected]
   (let [serial-port (SerialPort. port-name #js {:baudrate baud-rate})]
     (.on serial-port "open" #(on-connected (as-streamable serial-port (memfn close))))))
 
 (def ^:private net (nodejs/require "net"))
 (def ^:private Socket (.-Socket net))
 
-(defn create-socket-client-stream [host port on-connected]
+(defn create-socket-client-stream
+  "Creates a socket stream on the given host and port, and
+   returns resulting stream via the on-connected callback function.
+  
+  The callback function should have the signatures of `(fn [stream])`"
+  [host port on-connected]
   (let [socket (Socket.)]
     (.connect socket port host #(on-connected (as-streamable socket (memfn end))))))
 

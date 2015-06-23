@@ -388,12 +388,14 @@
   #+cljs 
    (let [port-fn (if (= port-name-or-auto-detect :auto-detect)
                    util/detect-arduino-port
-                   (fn [callback] (callback port-name-or-auto-detect)))]
-     (port-fn (fn [port-name] 
-                (st/create-serial-stream port-name baud-rate 
-                                         (fn [client] (open-board client on-ready :event-buffer-size event-buffer-size 
-                                                                  :from-raw-digital from-raw-digital
-                                                                  :reset-on-connect? reset-on-connect?)))))))
+                   (fn [callback] (callback nil port-name-or-auto-detect)))]
+     (port-fn (fn [err port-name] 
+                (when (not err)
+                  (st/create-serial-stream port-name baud-rate 
+                                           #(open-board % on-ready
+                                                       :event-buffer-size event-buffer-size 
+                                                       :from-raw-digital from-raw-digital
+                                                       :reset-on-connect? reset-on-connect?)))))))
 
 (defn open-network-board
   "Opens a connection to a board at a host and port.
