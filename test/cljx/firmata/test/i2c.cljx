@@ -45,17 +45,17 @@
     (testing "ic2 request: read-once"
       (send-i2c-request board 6 :read-once 1000)
       (wait-for-it (fn []
-        (is (= [0xF0 0x76 6 2r0000100 0x68 0x7 0xF7] (mock/last-write client))))))
+        (is (= [0xF0 0x76 6 2r0001000 0x68 0x7 0xF7] (mock/last-write client))))))
 
     (testing "ic2 request: read-continuously"
       (send-i2c-request board 7 :read-continuously)
       (wait-for-it (fn []
-        (is (= [0xF0 0x76 7 2r1000 0xF7] (mock/last-write client))))))
+        (is (= [0xF0 0x76 7 2r0010000 0xF7] (mock/last-write client))))))
 
     (testing "ic2 request: stop-reading"
       (send-i2c-request board 7 :stop-reading)
       (wait-for-it (fn []
-        (is (= [0xF0 0x76 7 2r1100 0xF7] (mock/last-write client))))))
+        (is (= [0xF0 0x76 7 2r0011000 0xF7] (mock/last-write client))))))
 
     (testing "ic2 config: delay"
       (send-i2c-config board 1000)
