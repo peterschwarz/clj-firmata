@@ -46,20 +46,22 @@
    [evt]
    (= (type evt) cljs.core/PersistentArrayMap))
 
-(defn digital-event-chan 
-  "Creates an async channel for digital events on a given pin.
+(defn topic-event-chan
+  "Creates an async channel for digital events on a given pin."
+  ([board topic] (topic-event-chan board topic nil))
+  ([board topic buf-or-n]
+   (let [target (if (vector? topic) topic [topic nil])
+         filtered-ch (subscription-chan board target buf-or-n)]
+     (wrap-chan board target filtered-ch filtered-ch))))
 
-  Returns a map with the channel at :chan and a function to close the channel at :close-fn"
+(defn digital-event-chan 
+  "Creates an async channel for digital events on a given pin."
   ([board digital-pin] (digital-event-chan board digital-pin nil))
   ([board digital-pin buf-or-n]
-   (let [topic [:digital-msg digital-pin]
-         filtered-ch (subscription-chan board topic buf-or-n)]
-     (wrap-chan board topic filtered-ch filtered-ch))))
+   (topic-event-chan board [:digital-msg digital-pin] buf-or-n)))
 
 (defn analog-event-chan
-  "Creates an async channel for digital events on a given pin.
-
-  Returns a map with the channel at :chan and a function to close the channel at :close-fn"
+  "Creates an async channel for digital events on a given pin."
   [board analog-pin  & {:keys [delta buf-or-n]
                         :or {delta 5 buf-or-n nil}}]
   (let [topic [:analog-msg analog-pin]
