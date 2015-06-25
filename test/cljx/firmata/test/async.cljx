@@ -8,7 +8,9 @@
             [clojure.core.async :as a  :refer [chan pub]]
             #+cljs
             [cljs.core.async    :as a  :refer [chan pub]]
-            [firmata.async      :as fa :refer [digital-event-chan analog-event-chan]])
+            [firmata.async      :as fa :refer [digital-event-chan
+                                               analog-event-chan
+                                               topic-event-chan]])
   #+cljs 
   (:require-macros [cemerick.cljs.test
                        :refer (is deftest with-test run-tests testing test-var done)]))
@@ -114,3 +116,31 @@
         (is (= exception evt))
 
         #+cljs (done) ))))
+
+(deftest ^:async test-topic-channel-filter
+  (let [board (mock-board)
+        topic-ch (topic-event-chan board [:foo nil])]
+    (send-msg board {:type :digital-msg :pin 0, :value :high})
+    (send-msg board {:type :foo :value :bar})
+
+    #+cljs (a/take! topic-ch
+                    (fn [evt]
+                      (is (= :foo (:type evt)))
+                      (done)))
+    #+clj (let [evt (a/<!! topic-ch)]
+            (is (= :foo (:type evt))))
+    ))
+
+(deftest ^:async test-non-vector-topic-channel-filter
+  (let [board (mock-board)
+        topic-ch (topic-event-chan board :foo)]
+    (send-msg board {:type :digital-msg :pin 0, :value :high})
+    (send-msg board {:type :foo :value :bar})
+
+    #+cljs (a/take! topic-ch
+                    (fn [evt]
+                      (is (= :foo (:type evt)))
+                      (done)))
+    #+clj (let [evt (a/<!! topic-ch)]
+            (is (= :foo (:type evt))))
+    ))
