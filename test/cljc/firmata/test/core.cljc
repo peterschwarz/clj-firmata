@@ -1,14 +1,13 @@
 (ns firmata.test.core
-  (:require #+clj 
-            [clojure.test :as t
-                   :refer (is deftest with-test run-tests testing)]
-            #+cljs
-            [cemerick.cljs.test :as t]
-            #+cljs
-            [cljs.nodejs :as nodejs]
+  (:require #?(:clj
+               [clojure.test :as t
+                :refer (is deftest with-test run-tests testing)])
+            #?(:cljs [cemerick.cljs.test :as t])
+            #?(:cljs [cljs.nodejs :as nodejs])
             [firmata.test.async-helpers :refer [get-event wait-for-it]]
-            [firmata.test.mock-stream :refer [create-mock-stream receive-bytes is-open? last-write 
-                                              #+clj throw-on-read throw-on-write]]
+            #?(:cljs [firmata.test.mock-stream :refer [create-mock-stream receive-bytes is-open? last-write throw-on-write]])
+            #?(:clj [firmata.test.mock-stream :refer [create-mock-stream receive-bytes is-open? last-write
+                                                      throw-on-read throw-on-write]])
             [firmata.test.board-helpers :refer [with-open-board with-serial-board]]
             [firmata.core :refer [open-board event-channel reset-board
                                   version close! firmware query-firmware query-capabilities
@@ -18,9 +17,9 @@
                                   format-raw-digital]]
             [firmata.util :refer [detect-arduino-port]]
             [firmata.stream :as st])
-  #+cljs 
-  (:require-macros [cemerick.cljs.test
-                       :refer (is deftest with-test run-tests testing test-var done)]))
+  #?(:cljs
+     (:require-macros [cemerick.cljs.test
+                       :refer (is deftest with-test run-tests testing test-var done)])))
 
 
 (deftest ^:async test-read-events
@@ -149,9 +148,8 @@
  )))))
 
 
-#+clj
+#?(:clj
 (deftest test-exception-read-events
-
   (let [client (create-mock-stream)]
     (with-open-board client (fn [board]
       (let [evt-chan (event-channel board)
@@ -160,16 +158,16 @@
 
         (get-event evt-chan (fn [event]
           (is (= exception event))
-          
-          )))))))
+
+          ))))))))
 
 (deftest ^:async test-exception-write-events
   (let [client (create-mock-stream)]
     (with-open-board client (fn [board]
       (let [evt-chan (event-channel board)
-            exception 
-              #+clj  (java.lang.RuntimeException. "Test Exception")
-              #+cljs (js/Error. "Test Exception")]
+            exception
+              #?(:clj  (java.lang.RuntimeException. "Test Exception")
+                 :cljs (js/Error. "Test Exception"))]
 
         (throw-on-write client exception)
 
@@ -178,7 +176,7 @@
 
         (wait-for-it #(get-event evt-chan (fn [event]
           (is (= exception event))
-          #+cljs (done)
+          #?(:cljs (done))
           ))))))))
 
 (deftest ^:async test-read-events-highlow-raw
@@ -278,9 +276,9 @@
       (wait-for-it (fn []
         (is (= [0xF0 0x6D 0 0xF7] (last-write client)))))
 
-      (is (thrown? #+clj AssertionError #+cljs js/Error (query-pin-state board "foo")))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (query-pin-state board -1)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (query-pin-state board 128))))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (query-pin-state board "foo")))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (query-pin-state board -1)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (query-pin-state board 128))))
 
     (testing "query analog mappings"
       (query-analog-mappings board)
@@ -308,10 +306,10 @@
       (wait-for-it (fn []
         (is (= [0xF4 28 4] (last-write client)))))
 
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-pin-mode board 1 :foo)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-pin-mode board "foo" :input)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-pin-mode board -1 :input)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-pin-mode board 128 :input))))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-pin-mode board 1 :foo)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-pin-mode board "foo" :input)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-pin-mode board -1 :input)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-pin-mode board 128 :input))))
 
     (testing "toggle analog in"
       (enable-analog-in-reporting board 1 true)
@@ -322,8 +320,8 @@
       (wait-for-it (fn []
         (is (= [0xC2 0] (last-write client)))))
 
-      (is (thrown? #+clj AssertionError #+cljs js/Error (enable-analog-in-reporting board -1 true)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (enable-analog-in-reporting board 16 true))))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (enable-analog-in-reporting board -1 true)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (enable-analog-in-reporting board 16 true))))
 
     (testing "toggle digital port reporting"
       (enable-digital-port-reporting board 1 true)
@@ -334,8 +332,8 @@
       (wait-for-it (fn []
         (is (= [0xD1 0] (last-write client)))))
 
-      (is (thrown? #+clj AssertionError #+cljs js/Error (enable-digital-port-reporting board -1 true)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (enable-digital-port-reporting board 16 false))))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (enable-digital-port-reporting board -1 true)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (enable-digital-port-reporting board 16 false))))
 
     (testing "set digital value: Keyword"
       (set-digital board 1 :high)
@@ -350,9 +348,9 @@
       (wait-for-it (fn []
         (is (= [0x91 0x0 0x0] (last-write client)))))
 
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 1 :foo)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board -1 :high)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 16 :low))))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-digital board 1 :foo)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-digital board -1 :high)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-digital board 16 :low))))
 
     (testing "set digital value: Symbol"
       (set-digital board 0 'low)
@@ -363,9 +361,9 @@
       (wait-for-it (fn []
         (is (= [0x90 0x3 0x0] (last-write client)))))
 
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 1 'foo)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board -1 :high)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 16 :low))))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-digital board 1 'foo)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-digital board -1 :high)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-digital board 16 :low))))
 
     (testing "set digital value: char"
       (set-digital board 0 \0)
@@ -376,9 +374,9 @@
       (wait-for-it (fn []
         (is (= [0x90 0x3 0x0] (last-write client)))))
 
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 1 \f)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board -1 :high)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 16 :low))))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-digital board 1 \f)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-digital board -1 :high)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-digital board 16 :low))))
 
     (testing "set digital value: literal"
       (set-digital board 0 0)
@@ -389,9 +387,9 @@
       (wait-for-it (fn []
         (is (= [0x90 0x3 0x0] (last-write client)))))
 
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 1 23)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board -1 :high)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-digital board 16 :low))))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-digital board 1 23)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-digital board -1 :high)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-digital board 16 :low))))
 
     (testing "set analog value"
       (set-analog board 4 1000)
@@ -402,8 +400,8 @@
       (wait-for-it (fn []
         (is (= [0xF0 0x6F 16 0x68 0x7 0xF7] (last-write client)))))
 
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-analog board -1 1000)))
-      (is (thrown? #+clj AssertionError #+cljs js/Error (set-analog board 128 1000))))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-analog board -1 1000)))
+      (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-analog board 128 1000))))
 
     (testing "set sampling interval"
       (set-sampling-interval board 1000)
@@ -418,49 +416,49 @@
       (close! board)
 
       (is (not (is-open? client)))
-      #+cljs (done) ))))
+      #?(:cljs (done)) ))))
 
 (deftest ^:async test-reset-on-connect
   (let [client (create-mock-stream)]
     (with-open-board client [:reset-on-connect? true] (fn [board]
 
       (is (= [0xFF] (last-write client)))
-       
-      #+cljs (done) ))))
 
-(deftest ^:async test-open-serial-with-auto-detect 
+      #?(:cljs (done)) ))))
+
+(deftest ^:async test-open-serial-with-auto-detect
   (let [opened-port (atom nil)]
-    (with-redefs [detect-arduino-port #+clj  (fn [] "some-port-value")
-                                      #+cljs (fn [callback] (callback "some-port-value"))
-                  st/create-serial-stream #+clj  (fn [port-name _]
-                                                    (reset! opened-port port-name)
-                                                    (create-mock-stream))
-                                          #+cljs (fn [port-name _ callback]
-                                                    (reset! opened-port port-name)
-                                                    (callback (create-mock-stream)))]
+    (with-redefs [detect-arduino-port #?(:clj  (fn [] "some-port-value"))
+                                      #?(:cljs (fn [callback] (callback "some-port-value")))
+                  st/create-serial-stream #?(:clj  (fn [port-name _]
+                                                     (reset! opened-port port-name)
+                                                     (create-mock-stream)))
+                                          #?(:cljs (fn [port-name _ callback]
+                                                     (reset! opened-port port-name)
+                                                     (callback (create-mock-stream))))]
       (with-serial-board :auto-detect (fn [board]
 
         (is (= "some-port-value" @opened-port))
 
-        #+cljs (done)
+        #?(:cljs (done))
       )))))
 
-(deftest ^:async test-open-serial-port-name 
+(deftest ^:async test-open-serial-port-name
   (let [opened-port (atom nil)]
-    (with-redefs [st/create-serial-stream #+clj  (fn [port-name _]
-                                                  (reset! opened-port port-name)
-                                                  (create-mock-stream))
-                                          #+cljs (fn [port-name _ callback]
-                                                  (reset! opened-port port-name)
-                                                  (callback (create-mock-stream)))]
+    (with-redefs [st/create-serial-stream #?(:clj  (fn [port-name _]
+                                                     (reset! opened-port port-name)
+                                                     (create-mock-stream)))
+                                          #?(:cljs (fn [port-name _ callback]
+                                                     (reset! opened-port port-name)
+                                                     (callback (create-mock-stream))))]
       (with-serial-board "cu.usbmodemfa141" (fn [board]
 
         (is (= "cu.usbmodemfa141" @opened-port))
 
-        #+cljs (done)
+        #?(:cljs (done))
       )))))
 
-#+cljs 
-(do 
-  (nodejs/enable-util-print!)
-  (set! *main-cli-fn* #(println "Running tests...")))
+#?(:cljs
+   (do
+     (nodejs/enable-util-print!)
+     (set! *main-cli-fn* #(println "Running tests..."))))

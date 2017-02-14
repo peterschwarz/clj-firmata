@@ -1,11 +1,11 @@
 (ns firmata.util
   (:require [firmata.stream.spi :refer [read!]]
-            #+clj 
-             [serial.core :refer [port-ids]]
-            #+cljs
-             [cljs.nodejs :as nodejs]))
+            #?(:clj
+               [serial.core :refer [port-ids]])
+            #?(:cljs
+               [cljs.nodejs :as nodejs])))
 
-; Number conversions
+                                        ; Number conversions
 
 (defn lsb "Least significant byte"
   [x]
@@ -24,9 +24,13 @@
   [lsb msb]
   (to-number [msb lsb]))
 
-(defn lowest-set-bit [x]
-  #+clj  (int (max 0 (/ (Math/log (bit-and x (- x))) (Math/log 2))))
-  #+cljs (max 0 (/ (.log js/Math (bit-and x (- x))) (aget js/Math "LN2"))))
+#?(:clj
+   (defn lowest-set-bit [x]
+     (int (max 0 (/ (Math/log (bit-and x (- x))) (Math/log 2))))))
+
+#?(:cljs
+   (defn lowest-set-bit [x]
+     (max 0 (/ (.log js/Math (bit-and x (- x))) (aget js/Math "LN2")))))
 
 (defn consume-until
   "Consumes bytes from the given input stream until the end-signal is reached."
@@ -59,9 +63,9 @@
 
 (defn to-hex-str
   "For debug output"
-  [x] (str "0x" (.toUpperCase 
-                 #+clj (Integer/toHexString x)
-                 #+cljs (.toString x 16))))
+  [x] (str "0x" (.toUpperCase
+                 #?(:clj (Integer/toHexString x))
+                 #?(:cljs (.toString x 16)))))
 
 (defn arduino-port?
   "Compares port name with known arduino port formats"
@@ -71,31 +75,31 @@
 (defn- first-port [port-seq name-fn]
   (first (filter arduino-port? (map name-fn port-seq))))
 
-#+clj
- (defn detect-arduino-port
-   "Returns the first arduino serial port based on port
+#?(:clj
+   (defn detect-arduino-port
+     "Returns the first arduino serial port based on port
    name, or nil. Currently only works for Mac."
-   []
-   (first-port (port-ids) #(.getName %)))
+     []
+     (first-port (port-ids) #(.getName %))))
 
-#+cljs
- (defn detect-arduino-port
-   "Provides to a callback the first arduino serial port based 
+#?(:cljs
+   (defn detect-arduino-port
+     "Provides to a callback the first arduino serial port based
    on port name, or nil. Currently only works for Mac.
 
    callback: (fn [err port-name])"
-   [callback]
-   (try 
-     (if-let [serialport (nodejs/require "serialport")]
+     [callback]
+     (try
+       (if-let [serialport (nodejs/require "serialport")]
 
-       (let [list-fn (.-list serialport)]
-         (list-fn (fn [err ports]
-                    (if err
-                      (callback err nil)
-                      (if-let [port (first-port (prim-seq ports) #(.-comName %))]
-                        (callback nil port)
-                        (callback "No port found" nil))))))
+         (let [list-fn (.-list serialport)]
+           (list-fn (fn [err ports]
+                      (if err
+                        (callback err nil)
+                        (if-let [port (first-port (prim-seq ports) #(.-comName %))]
+                          (callback nil port)
+                          (callback "No port found" nil))))))
 
-       (callback "Unable to require 'serialport': This may be due to a missing npm dependency." nil))
-     (catch js/Error e
-       (callback e nil))))
+         (callback "Unable to require 'serialport': This may be due to a missing npm dependency." nil))
+       (catch js/Error e
+         (callback e nil)))))

@@ -1,15 +1,15 @@
 (ns firmata.test.util
-  (:require #+clj 
-            [clojure.test :as t
-                   :refer (is are deftest testing)]
-            #+cljs
-            [cemerick.cljs.test :as t]
-            #+cljs
-            [cljs.nodejs :as nodejs]
+  (:require #?(:clj
+               [clojure.test :as t
+                :refer (is are deftest testing)])
+            #?(:cljs
+               [cemerick.cljs.test :as t])
+            #?(:cljs
+               [cljs.nodejs :as nodejs])
             [firmata.util :refer [to-hex-str arduino-map arduino-constrain lowest-set-bit
                                   arduino-port? detect-arduino-port]])
-  #+cljs 
-  (:require-macros [cemerick.cljs.test :refer [is are deftest testing]]))
+  #?(:cljs
+     (:require-macros [cemerick.cljs.test :refer [is are deftest testing]])))
 
 
 (deftest to-hex-str-test
@@ -83,47 +83,47 @@
     (is (nil? (arduino-port? "/dev/ttyS1")))))
 
 
-#+cljs
-(deftest test-detect-arduino-port
-  (let [list-fn (atom identity)]
+#?(:cljs
+   (deftest test-detect-arduino-port
+     (let [list-fn (atom identity)]
 
-    (with-redefs [nodejs/require (fn [module-name]
-                                   (js-obj "list" @list-fn))]
+       (with-redefs [nodejs/require (fn [module-name]
+                                      (js-obj "list" @list-fn))]
 
-      (testing "proper matches"
-        (reset! list-fn (fn [f] (f nil (array (js-obj "comName" "not.something")
-                                              (js-obj "comName" "/dev/tty.usbmodem54321")))))
+         (testing "proper matches"
+           (reset! list-fn (fn [f] (f nil (array (js-obj "comName" "not.something")
+                                                 (js-obj "comName" "/dev/tty.usbmodem54321")))))
 
-        (detect-arduino-port (fn [err port]
-          (is (= nil err))
-          (is (= "/dev/tty.usbmodem54321" port)))))
+           (detect-arduino-port (fn [err port]
+                                  (is (= nil err))
+                                  (is (= "/dev/tty.usbmodem54321" port)))))
 
-      (testing "no matches"
-        (reset! list-fn (fn [f] (f nil (array))))
+         (testing "no matches"
+           (reset! list-fn (fn [f] (f nil (array))))
 
-        (detect-arduino-port (fn [err port]
-          (is (= "No port found" err))
-          (is (= nil port)))))
+           (detect-arduino-port (fn [err port]
+                                  (is (= "No port found" err))
+                                  (is (= nil port)))))
 
-      (testing "returns error"
-        (reset! list-fn (fn [f] (f "Error!" nil)))
+         (testing "returns error"
+           (reset! list-fn (fn [f] (f "Error!" nil)))
 
-        (detect-arduino-port (fn [err port]
-          (is (= "Error!" err))
-          (is (= nil port)))))
+           (detect-arduino-port (fn [err port]
+                                  (is (= "Error!" err))
+                                  (is (= nil port)))))
 
-      (testing "missing 'serialport' via no value"
-        (reset! list-fn (fn [f] nil))
+         (testing "missing 'serialport' via no value"
+           (reset! list-fn (fn [f] nil))
 
-        (detect-arduino-port (fn [err port]
-          (is (= "Unable to require 'serialport': This may be due to a missing npm dependency." err))
-          (is (= nil port)))))
+           (detect-arduino-port (fn [err port]
+                                  (is (= "Unable to require 'serialport': This may be due to a missing npm dependency." err))
+                                  (is (= nil port)))))
 
-      (testing "missing 'serialport' via exception"
-        (let  [expected-e (js/Error. "missing 'serialport'")]
-          (reset! list-fn (fn [f] (throw expected-e))
+         (testing "missing 'serialport' via exception"
+           (let  [expected-e (js/Error. "missing 'serialport'")]
+             (reset! list-fn (fn [f] (throw expected-e))
 
-          (detect-arduino-port (fn [err port]
-            (is (= expected-e err))
-            (is (= nil port)))))))))
-  )
+                     (detect-arduino-port (fn [err port]
+                                            (is (= expected-e err))
+                                            (is (= nil port)))))))))
+     ))

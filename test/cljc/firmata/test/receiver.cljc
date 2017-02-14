@@ -1,20 +1,20 @@
 (ns firmata.test.receiver
-  (:require #+clj 
-            [clojure.test :as t
-                   :refer (is deftest with-test run-tests testing)]
-            #+cljs
-            [cemerick.cljs.test :as t]
+  (:require #?(:clj
+               [clojure.test :as t
+                :refer (is deftest with-test run-tests testing)])
+            #?(:cljs
+               [cemerick.cljs.test :as t])
             [firmata.test.async-helpers :refer [wait-for-it]]
             [firmata.core :refer [event-channel event-publisher release-event-channel]]
             [firmata.receiver :refer [stop-receiver! on-event on-analog-event on-digital-event]]
-            #+clj
-            [clojure.core.async :as a :refer [chan pub]]
-            #+cljs
-            [cljs.core.async    :as a :refer [chan pub]])
+            #?(:clj
+               [clojure.core.async :as a :refer [chan pub]])
+            #?(:cljs
+               [cljs.core.async    :as a :refer [chan pub]]))
 
-  #+cljs 
-  (:require-macros [cemerick.cljs.test
-                       :refer (is deftest with-test run-tests testing test-var)]))
+  #?(:cljs
+     (:require-macros [cemerick.cljs.test
+                       :refer (is deftest with-test run-tests testing test-var)])))
 
 (defn- make-chan []
   (chan (a/sliding-buffer 1)))
@@ -31,7 +31,7 @@
     (a/tap mult-ch e-ch)
     (a/tap mult-ch pub-ch)
 
-    {:mult-ch mult-ch 
+    {:mult-ch mult-ch
      :create-channel make-chan
      :pub-ch pub-ch
      :publisher p}))
@@ -140,4 +140,3 @@
 
        (a/close! channel)))
 )
-

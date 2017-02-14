@@ -1,17 +1,17 @@
 (ns firmata.test.i2c
-  (:require #+clj 
-            [clojure.test :as t
-                   :refer (is deftest with-test run-tests testing)]
-            #+cljs
-            [cemerick.cljs.test :as t]
+  (:require #?(:clj
+               [clojure.test :as t
+                :refer (is deftest with-test run-tests testing)])
+            #?(:cljs
+               [cemerick.cljs.test :as t])
             [firmata.test.async-helpers :refer [get-event wait-for-it]]
             [firmata.test.mock-stream :as mock]
             [firmata.test.board-helpers :refer [with-open-board]]
             [firmata.core :refer [event-channel]]
             [firmata.i2c :refer [send-i2c-request send-i2c-config]])
-  #+cljs 
-  (:require-macros [cemerick.cljs.test
-                       :refer (is deftest with-test run-tests testing test-var)]))
+  #?(:cljs
+     (:require-macros [cemerick.cljs.test
+                       :refer (is deftest with-test run-tests testing test-var)])))
 
 (deftest ^:async test-read-i2c-events
 
