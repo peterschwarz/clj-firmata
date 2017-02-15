@@ -28,8 +28,6 @@
                                           "npm" "install," "cljsbuild" "test"]
                              "cljstest" ["do" "cljsbuild" "test"]}}}
 
-;  :prep-tasks [["cljx" "once"]]
-
   :node-dependencies [[serialport "4.0.7"]]
   :npm-root "target"
 
