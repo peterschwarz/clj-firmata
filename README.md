@@ -65,6 +65,12 @@ For analog values a pin must be in `:pwm` mode:
 
 The above will set the brightness of an LED on pin 11 to maximum brightness
 
+#### Sending string data
+
+```clojure
+(send-string board "abc")
+```
+
 #### Receiving Information
 
 The Firmata protocol provides several ways of receiving events from the board.  The first is via an event channel:

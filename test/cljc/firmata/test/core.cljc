@@ -13,7 +13,7 @@
                                   version close! firmware query-firmware query-capabilities
                                   query-version query-analog-mappings query-pin-state
                                   set-pin-mode enable-analog-in-reporting enable-digital-port-reporting
-                                  set-digital set-analog set-sampling-interval
+                                  set-digital set-analog send-string set-sampling-interval
                                   format-raw-digital]]
             [firmata.util :refer [detect-arduino-port]]
             [firmata.stream :as st])
@@ -402,6 +402,11 @@
 
       (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-analog board -1 1000)))
       (is (thrown? #?(:clj AssertionError :cljs js/Error) (set-analog board 128 1000))))
+
+    (testing "send string data"
+      (send-string board "abc")
+      (wait-for-it (fn []
+        (is (= [0xF0 0x71 (byte \a) (byte \b) (byte \c) 0xF7] (last-write client))))))
 
     (testing "set sampling interval"
       (set-sampling-interval board 1000)
