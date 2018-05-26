@@ -121,9 +121,7 @@
 
          (testing "missing 'serialport' via exception"
            (let  [expected-e (js/Error. "missing 'serialport'")]
-             (reset! list-fn (fn [f] (throw expected-e))
-
-                     (detect-arduino-port (fn [err port]
-                                            (is (= expected-e err))
-                                            (is (= nil port)))))))))
-     ))
+             (reset! list-fn (fn [f] (throw expected-e)))
+             (detect-arduino-port (fn [err port]
+                                    (is (= expected-e err))
+                                    (is (= nil port))))))))))
