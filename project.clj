@@ -10,9 +10,9 @@
 
   :jvm-opts ["-Xmx384m"]
 
-  :dependencies [[org.clojure/clojure "1.8.0"]
-                 [org.clojure/clojurescript "1.9.473"]
-                 [org.clojure/core.async "0.2.395"]
+  :dependencies [[org.clojure/clojure "1.9.0"]
+                 [org.clojure/clojurescript "1.10.238"]
+                 [org.clojure/core.async "0.4.474"]
                  [clj-serial "2.0.3"]]
 
   :scm {:name "git"
