@@ -243,6 +243,13 @@
                   [m/SYSEX_START m/EXTENDED_ANALOG pin (lsb value) (msb value) m/SYSEX_END]
                   [(pin-command m/ANALOG_IO_MESSAGE pin) (lsb value) (msb value)])))
 
+(defn send-string
+  "Sends a string to the board. String length is limited to half the buffer size - 3
+  (for Arduino this limits strings to 30 chars)."
+  [board string]
+  (send-message board
+                (flatten [m/SYSEX_START m/STRING_DATA (map byte string) m/SYSEX_END])))
+
 (defn set-sampling-interval
   "The sampling interval sets how often analog data and i2c data is reported to the client.
    The system default value is 19 milliseconds."
